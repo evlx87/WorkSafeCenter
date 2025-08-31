@@ -30,10 +30,6 @@
   <p>Директор: {{ safety_info.director_name }}</p>
   <p>Специалист по ОТ: {{ safety_info.ot_specialist_name }}</p>
   <p>Дата оценки рисков: {{ safety_info.risk_assessment_date|default:"Не указана" }}</p>
-  <!-- TODO: Ссылка на документ будет в documents -->
-  {% if safety_info.ot_policy_file %}
-  <p>Положение о системе ОТ: <a href="{{ safety_info.ot_policy_file.url }}">Скачать</a></p>
-  {% endif %}
   <p><a href="{% url 'organization:safety_info_edit' %}">Редактировать информацию по ОТ</a></p>
   {% else %}
   <p>Информация не заполнена. <a href="{% url 'organization:safety_info_edit' %}">Заполнить</a></p>
