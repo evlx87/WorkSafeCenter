@@ -3,8 +3,53 @@
 {% block content %}
 <section>
   <h2>Отделы</h2>
-  <ul>{% for dept in departments %}<li>{{ dept.name }}</li>{% endfor %}</ul>
+  <a href="{% url 'organization:department_create' %}">Добавить отдел</a>
+  <ul>
+    {% for dept in departments %}
+    <li>{{ dept.name }} ({{ dept.head }})
+      <a href="{% url 'organization:department_update' dept.pk %}">Редактировать</a>
+      <a href="{% url 'organization:department_delete' dept.pk %}">Удалить</a>
+    </li>
+    {% endfor %}
+  </ul>
+
   <h2>Должности</h2>
-  <ul>{% for pos in positions %}<li>{{ pos.name }}</li>{% endfor %}</ul>
+  <a href="{% url 'organization:position_create' %}">Добавить должность</a>
+  <ul>
+    {% for pos in positions %}
+    <li>{{ pos.name }} ({{ pos.department }})
+      <a href="{% url 'organization:position_update' pos.pk %}">Редактировать</a>
+      <a href="{% url 'organization:position_delete' pos.pk %}">Удалить</a>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <h2>Информация по охране труда</h2>
+  {% if safety_info %}
+  <p>Название школы: {{ safety_info.school_name }}</p>
+  <p>Директор: {{ safety_info.director_name }}</p>
+  <p>Специалист по ОТ: {{ safety_info.ot_specialist_name }}</p>
+  <p>Дата оценки рисков: {{ safety_info.risk_assessment_date|default:"Не указана" }}</p>
+  <!-- TODO: Ссылка на документ будет в documents -->
+  {% if safety_info.ot_policy_file %}
+  <p>Положение о системе ОТ: <a href="{{ safety_info.ot_policy_file.url }}">Скачать</a></p>
+  {% endif %}
+  <p><a href="{% url 'organization:safety_info_edit' %}">Редактировать информацию по ОТ</a></p>
+  {% else %}
+  <p>Информация не заполнена. <a href="{% url 'organization:safety_info_edit' %}">Заполнить</a></p>
+  {% endif %}
+
+  <h2>Площадки</h2>
+  <a href="{% url 'organization:site_create' %}">Добавить площадку</a>
+  <ul>
+    {% for site in sites %}
+    <li>{{ site.name }} ({{ site.address }}) - Ответственный: {{ site.ot_responsible_name }}
+      <br><a href="{% url 'organization:site_update' site.pk %}">Редактировать</a>
+      <a href="{% url 'organization:site_delete' site.pk %}">Удалить</a>
+    </li>
+    {% empty %}
+    <li>Площадки не добавлены.</li>
+    {% endfor %}
+  </ul>
 </section>
 {% endblock %}
