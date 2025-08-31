@@ -1,6 +1,6 @@
 from django.db import models
 
-from organization.models import Position, Department
+from organization.models import Department, Position
 
 
 # Create your models here.

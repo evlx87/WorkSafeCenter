@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}WorkSafeCenter - Информация об организации{% endblock %}
+{% block content %}
+<section>
+  <h2>Отделы</h2>
+  <ul>{% for dept in departments %}<li>{{ dept.name }}</li>{% endfor %}</ul>
+  <h2>Должности</h2>
+  <ul>{% for pos in positions %}<li>{{ pos.name }}</li>{% endfor %}</ul>
+</section>
+{% endblock %}

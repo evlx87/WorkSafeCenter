@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}
+WorkSafeCenter - Инциденты
+{% endblock %}
+
+{% block content %}
+<section>
+  <h2>Список инцидентов</h2>
+  {% if incidents %}
+  <ul>
+    {% for incident in incidents %}
+    <li>{{ incident.employee }} - {{ incident.get_incident_type_display }} ({{ incident.incident_date }})</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Инциденты не найдены.</p>
+  {% endif %}
+</section>
+{% endblock %}

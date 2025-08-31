@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}
+WorkSafeCenter - Документы
+{% endblock %}
+
+{% block content %}
+<section>
+  <h2>Список документов</h2>
+  {% if documents %}
+  <ul>
+    {% for document in documents %}
+    <li>{{ document.title }} - {{ document.get_document_type_display }} ({{ document.upload_date }})</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Документы не найдены.</p>
+  {% endif %}
+</section>
+{% endblock %}

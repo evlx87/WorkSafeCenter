@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}
+WorkSafeCenter - Медосмотры
+{% endblock %}
+
+{% block content %}
+<section>
+  <h2>Список медосмотров</h2>
+  {% if medical_checks %}
+  <ul>
+    {% for check in medical_checks %}
+    <li>{{ check.employee }} - {{ check.check_date }} (Действителен: {{ check.is_valid }})</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Медосмотры не найдены.</p>
+  {% endif %}
+</section>
+{% endblock %}
