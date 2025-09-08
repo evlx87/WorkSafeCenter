@@ -7,10 +7,16 @@ class Department(models.Model):
         unique=True,
         verbose_name="Название отдела")
     description = models.TextField(blank=True, verbose_name="Описание")
-    head = models.CharField(
-        max_length=200,
+    # Замените 'Employee' на строку 'employees.Employee'
+    head = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        verbose_name="Руководитель")
+        verbose_name="Руководитель",
+        related_name='headed_department',
+        limit_choices_to={'is_active': True}
+    )
 
     def __str__(self):
         return self.name

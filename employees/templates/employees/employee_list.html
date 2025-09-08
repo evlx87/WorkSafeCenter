@@ -1,18 +1,38 @@
 {% extends 'base.html' %}
-
 {% block title %}
 WorkSafeCenter - Список сотрудников
 {% endblock %}
-
 {% block content %}
 <section>
   <h2>Список сотрудников</h2>
+
+  <a href="{% url 'employees:employee_create' %}" class="button">Добавить сотрудника</a>
+  <br><br>
+
   {% if employees %}
-  <ul>
+  <table border="1" cellpadding="5" cellspacing="0" width="100%">
+    <thead>
+    <tr>
+      <th>ФИО</th>
+      <th>Должность</th>
+      <th>Отдел</th>
+      <th>Действия</th>
+    </tr>
+    </thead>
+    <tbody>
     {% for employee in employees %}
-    <li>{{ employee.last_name }} {{ employee.first_name }} {{ employee.middle_name }} - {{ employee.position }} ({{ employee.department }})</li>
+    <tr>
+      <td>{{ employee.last_name }} {{ employee.first_name }} {{ employee.middle_name }}</td>
+      <td>{{ employee.position }}</td>
+      <td>{{ employee.department }}</td>
+      <td>
+        <a href="{% url 'employees:employee_update' employee.pk %}">Редактировать</a> |
+        <a href="{% url 'employees:employee_delete' employee.pk %}">Удалить</a>
+      </td>
+    </tr>
     {% endfor %}
-  </ul>
+    </tbody>
+  </table>
   {% else %}
   <p>Сотрудники не найдены.</p>
   {% endif %}
