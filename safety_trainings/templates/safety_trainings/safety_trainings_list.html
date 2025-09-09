@@ -1,11 +1,34 @@
 {% extends 'base.html' %}
-
 {% block title %}
 WorkSafeCenter - Инструктажи и обучение
 {% endblock %}
-
 {% block content %}
 <section>
+  <h2>Сводка по дополнительному образованию</h2>
+  {% if summary_data %}
+  <table border="1" cellpadding="5" cellspacing="0" width="100%">
+    <thead>
+    <tr>
+      <th>Наименование программы обучения</th>
+      <th>Прошли обучение</th>
+      <th>Приближается срок повторного обучения (Истекает через 4 мес.)</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for summary in summary_data %}
+    <tr>
+      <td>{{ summary.name }} ({{ summary.hours }} часов)</td>
+      <td>{{ summary.total_count }} чел.</td>
+      <td>{{ summary.approaching_count }} чел.</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Данные о дополнительном образовании отсутствуют.</p>
+  {% endif %}
+  <br>
+  <hr>
   <h2>Список инструктажей</h2>
   {% if trainings %}
   <ul>
