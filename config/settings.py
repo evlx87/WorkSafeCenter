@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'reports.apps.ReportsConfig',
     'safety_trainings.apps.SafetyTrainingsConfig',
     'organization.apps.OrganizationConfig',
+    'trainings.apps.TrainingsConfig'
 ]
 
 MIDDLEWARE = [

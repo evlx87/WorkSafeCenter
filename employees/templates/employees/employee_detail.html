@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}
+Карточка сотрудника
+{% endblock %}
+{% block content %}
+<section>
+  <h2>Карточка сотрудника: {{ employee.last_name }} {{ employee.first_name }}</h2>
+  <p><strong>Должность:</strong> {{ employee.position }}</p>
+  <p><strong>Отдел:</strong> {{ employee.department }}</p>
+  <p><strong>Дата найма:</strong> {{ employee.hire_date }}</p>
+  <p><strong>Email:</strong> {{ employee.email|default:"Не указан" }}</p>
+  <hr>
+
+  <h3>Профессиональное обучение</h3>
+  <a href="{% url 'trainings:training_create' employee.pk %}" class="button">Добавить обучение</a>
+  <br><br>
+  {% if employee.trainings.all %}
+  <table border="1" cellpadding="5" cellspacing="0" width="100%">
+    <thead>
+    <tr>
+      <th>Программа</th>
+      <th>Часы</th>
+      <th>Дата</th>
+      <th>Периодичность</th>
+      <th>Документ</th>
+      <th>Действия</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for training in employee.trainings.all %}
+    <tr>
+      <td>{{ training.program_name }}</td>
+      <td>{{ training.hours }}</td>
+      <td>{{ training.training_date }}</td>
+      <td>{{ training.frequency_months }} мес.</td>
+      <td>
+        {% if training.document_scan %}
+        <a href="{{ training.document_scan.url }}" target="_blank">Смотреть PDF</a>
+        {% else %}
+        Нет файла
+        {% endif %}
+      </td>
+      <td>
+        <a href="{% url 'trainings:training_update' employee.pk training.pk %}">Редактировать</a> |
+        <a href="{% url 'trainings:training_delete' employee.pk training.pk %}">Удалить</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Информация об обучении отсутствует.</p>
+  {% endif %}
+</section>
+{% endblock %}
