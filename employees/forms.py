@@ -7,11 +7,14 @@ class EmployeeForm(forms.ModelForm):
         model = Employee
         fields = [
             'last_name', 'first_name', 'middle_name', 'position', 'department',
-            'birth_date', 'hire_date', 'email', 'phone', 'is_active'
+            'birth_date', 'hire_date', 'email', 'phone',
+            'is_executive', 'on_parental_leave',
+            'termination_date', 'termination_order_number'
         ]
         widgets = {
             'birth_date': forms.DateInput(attrs={'type': 'date'}),
             'hire_date': forms.DateInput(attrs={'type': 'date'}),
+            'termination_date': forms.DateInput(attrs={'type': 'date'}),
         }
 
     def __init__(self, *args, **kwargs):

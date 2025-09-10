@@ -11,12 +11,19 @@ class EmployeeAdmin(admin.ModelAdmin):
         'first_name',
         'position',
         'department',
-        'hire_date',
+        'is_executive',
+        'on_parental_leave',
         'is_active')
     search_fields = (
         'last_name',
         'first_name',
         'position__name',
         'department__name')
-    list_filter = ('is_active', 'position', 'department')
+    list_filter = (
+        'is_active',
+        'on_parental_leave',
+        'is_executive',
+        'position',
+        'department'
+    )
     ordering = ('last_name',)

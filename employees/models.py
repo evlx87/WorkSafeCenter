@@ -50,6 +50,34 @@ class Employee(models.Model):
     is_active = models.BooleanField(
         default=True,
         verbose_name="Активен")
+    is_executive = models.BooleanField(
+        default=False,
+        verbose_name="Руководящий состав",
+        help_text="Отметьте, если сотрудник относится к высшему руководству (например, директор, заместитель директора)."
+    )
+    on_parental_leave = models.BooleanField(
+        default=False,
+        verbose_name="В декретном отпуске"
+    )
+    termination_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Дата увольнения"
+    )
+    termination_order_number = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Номер приказа об увольнении"
+    )
+
+    def save(self, *args, **kwargs):
+        # Автоматически делаем сотрудника неактивным, если указана дата увольнения
+        if self.termination_date:
+            self.is_active = False
+        else:
+            # Если дату увольнения убрали, снова делаем активным (на случай ошибки ввода)
+            self.is_active = True
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.last_name} {self.first_name} {self.middle_name}"

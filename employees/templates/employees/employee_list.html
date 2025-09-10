@@ -5,10 +5,8 @@ WorkSafeCenter - Список сотрудников
 {% block content %}
 <section>
   <h2>Список сотрудников</h2>
-
   <a href="{% url 'employees:employee_create' %}" class="button">Добавить сотрудника</a>
   <br><br>
-
   {% if employees %}
   <table border="1" cellpadding="5" cellspacing="0" width="100%">
     <thead>
@@ -16,6 +14,7 @@ WorkSafeCenter - Список сотрудников
       <th>ФИО</th>
       <th>Должность</th>
       <th>Отдел</th>
+      <th>Статус</th>
       <th>Действия</th>
     </tr>
     </thead>
@@ -26,7 +25,17 @@ WorkSafeCenter - Список сотрудников
         <a href="{% url 'employees:employee_detail' employee.pk %}">{{ employee.last_name }} {{ employee.first_name }} {{ employee.middle_name }}</a>
       </td>
       <td>{{ employee.position }}</td>
-      <td>{{ employee.department }}</td>
+      <td>{{ employee.department|default:"-" }}</td>
+
+      <td>
+        {% if employee.termination_date %}
+        <span style="color: red;">Уволен {{ employee.termination_date|date:"d.m.Y" }}</span>
+        {% elif employee.on_parental_leave %}
+        <span style="color: blue;">В декрете</span>
+        {% else %}
+        <span style="color: green;">Активен</span>
+        {% endif %}
+      </td>
       <td>
         <a href="{% url 'employees:employee_update' employee.pk %}">Редактировать</a> |
         <a href="{% url 'employees:employee_delete' employee.pk %}">Удалить</a>

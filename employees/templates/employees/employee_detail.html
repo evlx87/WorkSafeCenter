@@ -5,6 +5,14 @@
 {% block content %}
 <section>
   <h2>Карточка сотрудника: {{ employee.last_name }} {{ employee.first_name }}</h2>
+
+  {% if employee.termination_date %}
+  <div style="border: 2px solid red; padding: 10px; margin-bottom: 20px; border-radius: 5px;">
+    <h3 style="color: red; margin-top: 0;">Сотрудник уволен</h3>
+    <p><strong>Дата увольнения:</strong> {{ employee.termination_date|date:"d.m.Y" }}</p>
+    <p><strong>Приказ №:</strong> {{ employee.termination_order_number }}</p>
+  </div>
+  {% endif %}
   <p><strong>Должность:</strong> {{ employee.position }}</p>
   <p><strong>Отдел:</strong> {{ employee.department }}</p>
   <p><strong>Дата найма:</strong> {{ employee.hire_date }}</p>
