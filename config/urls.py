@@ -24,6 +24,7 @@ urlpatterns = [
     path('', index, name='index'),
     path('admin/', admin.site.urls),
     path('employees/', include('employees.urls', namespace='employees')),
+    path('trainings/', include('trainings.urls', namespace='trainings')),
     path('employees/<int:employee_pk>/trainings/', include('trainings.urls', namespace='trainings')),
     path('organization/', include('organization.urls', namespace='organization')),
     path('safety-trainings/', include('safety_trainings.urls', namespace='safety_trainings')),

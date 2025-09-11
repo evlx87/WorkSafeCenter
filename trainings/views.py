@@ -1,9 +1,10 @@
 from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, UpdateView, DeleteView
-from .models import Training
-from .forms import TrainingForm
+from django.views.generic import CreateView, UpdateView, DeleteView, ListView
+
 from employees.models import Employee
+from .forms import TrainingForm, TrainingProgramForm
+from .models import Training, TrainingProgram
 
 
 # Create your views here.
@@ -55,3 +56,29 @@ class TrainingDeleteView(DeleteView):
     def get_success_url(self):
         return reverse_lazy('employees:employee_detail', kwargs={
                             'pk': self.object.employee.pk})
+
+
+class TrainingProgramListView(ListView):
+    model = TrainingProgram
+    template_name = 'trainings/trainingprogram_list.html'
+    context_object_name = 'programs'
+
+
+class TrainingProgramCreateView(CreateView):
+    model = TrainingProgram
+    form_class = TrainingProgramForm
+    template_name = 'trainings/trainingprogram_form.html'
+    success_url = reverse_lazy('trainings:program_list')
+
+
+class TrainingProgramUpdateView(UpdateView):
+    model = TrainingProgram
+    form_class = TrainingProgramForm
+    template_name = 'trainings/trainingprogram_form.html'
+    success_url = reverse_lazy('trainings:program_list')
+
+
+class TrainingProgramDeleteView(DeleteView):
+    model = TrainingProgram
+    template_name = 'trainings/trainingprogram_confirm_delete.html'
+    success_url = reverse_lazy('trainings:program_list')

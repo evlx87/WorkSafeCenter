@@ -37,10 +37,10 @@
     <tbody>
     {% for training in employee.trainings.all %}
     <tr>
-      <td>{{ training.program_name }}</td>
-      <td>{{ training.hours }}</td>
-      <td>{{ training.training_date }}</td>
-      <td>{{ training.frequency_months }} мес.</td>
+      <td>{{ training.program.name }}</td>
+      <td>{{ training.program.hours }}</td>
+      <td>{{ training.training_date|date:"d.m.Y" }}</td>
+      <td>{{ training.program.frequency_months }} мес.</td>
       <td>
         {% if training.document_scan %}
         <a href="{{ training.document_scan.url }}" target="_blank">Смотреть PDF</a>

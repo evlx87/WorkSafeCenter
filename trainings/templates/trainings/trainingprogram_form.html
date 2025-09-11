@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}{% if form.instance.pk %}Редактирование программы{% else %}Добавление программы{% endif %}{% endblock %}
+{% block content %}
+<section>
+  <h2>{% if form.instance.pk %}Редактирование программы обучения{% else %}Добавление новой программы{% endif %}</h2>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Сохранить</button>
+    <a href="{% url 'trainings:program_list' %}">Отмена</a>
+  </form>
+</section>
+{% endblock %}
