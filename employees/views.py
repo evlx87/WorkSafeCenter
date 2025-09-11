@@ -1,6 +1,7 @@
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 
+from organization.models import Department
 from .forms import EmployeeForm
 from .models import Employee
 
@@ -10,6 +11,28 @@ class EmployeeListView(ListView):
     model = Employee
     template_name = 'employees/employee_list.html'
     context_object_name = 'employees'
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related('position', 'department')
+        search_query = self.request.GET.get('search_query', '')
+        department_id = self.request.GET.get('department', '')
+
+        if search_query:
+            queryset = queryset.filter(last_name__icontains=search_query)
+
+        if department_id:
+            queryset = queryset.filter(department_id=department_id)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Передаем в шаблон все отделы для выпадающего списка
+        context['departments'] = Department.objects.all()
+        # Передаем текущие значения фильтров, чтобы форма "помнила" их
+        context['search_query'] = self.request.GET.get('search_query', '')
+        context['selected_department'] = self.request.GET.get('department', '')
+        return context
 
 
 class EmployeeDetailView(DetailView):

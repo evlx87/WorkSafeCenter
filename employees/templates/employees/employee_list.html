@@ -7,6 +7,30 @@ WorkSafeCenter - Список сотрудников
   <h2>Список сотрудников</h2>
   <a href="{% url 'employees:employee_create' %}" class="button">Добавить сотрудника</a>
   <br><br>
+
+  <form method="get" action="{% url 'employees:employee_list' %}" style="margin-bottom: 20px;">
+    <div style="display: flex; gap: 15px; align-items: center;">
+      <input
+              type="text"
+              name="search_query"
+              placeholder="Поиск по фамилии..."
+              value="{{ search_query }}"
+      >
+      <select name="department">
+        <option value="">Все отделы</option>
+        {% for dept in departments %}
+        <option
+                value="{{ dept.pk }}"
+                {% if dept.pk|stringformat:"s" == selected_department %}selected{% endif %}
+        >
+        {{ dept.name }}
+        </option>
+        {% endfor %}
+      </select>
+      <button type="submit">Найти</button>
+      <a href="{% url 'employees:employee_list' %}">Сбросить</a>
+    </div>
+  </form>
   {% if employees %}
   <table border="1" cellpadding="5" cellspacing="0" width="100%">
     <thead>
