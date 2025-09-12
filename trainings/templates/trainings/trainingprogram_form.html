@@ -7,7 +7,7 @@
     {% csrf_token %}
     {{ form.as_p }}
     <button type="submit">Сохранить</button>
-    <a href="{% url 'trainings:program_list' %}">Отмена</a>
+    <a href="{% url 'programs:program_list' %}">Отмена</a>
   </form>
 </section>
 {% endblock %}
