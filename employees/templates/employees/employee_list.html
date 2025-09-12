@@ -47,6 +47,9 @@ WorkSafeCenter - Список сотрудников
     <tr>
       <td>
         <a href="{% url 'employees:employee_detail' employee.pk %}">{{ employee.last_name }} {{ employee.first_name }} {{ employee.middle_name }}</a>
+        {% if employee.is_safety_committee_member %}
+        <span style="color: #007bff; font-weight: bold; font-size: 0.9em;"> (Комиссия)</span>
+        {% endif %}
       </td>
       <td>{{ employee.position }}</td>
       <td>{{ employee.department|default:"-" }}</td>

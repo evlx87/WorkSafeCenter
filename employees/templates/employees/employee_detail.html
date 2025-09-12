@@ -15,6 +15,9 @@
   {% endif %}
   <p><strong>Должность:</strong> {{ employee.position }}</p>
   <p><strong>Отдел:</strong> {{ employee.department }}</p>
+  {% if employee.is_safety_committee_member %}
+  <p><strong>Особый статус:</strong> Член комиссии по охране труда</p>
+  {% endif %}
   <p><strong>Дата найма:</strong> {{ employee.hire_date }}</p>
   <p><strong>Email:</strong> {{ employee.email|default:"Не указан" }}</p>
   <hr>

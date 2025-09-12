@@ -13,6 +13,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         'department',
         'is_executive',
         'on_parental_leave',
+        'is_safety_committee_member',
         'is_active')
     search_fields = (
         'last_name',
@@ -23,6 +24,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         'is_active',
         'on_parental_leave',
         'is_executive',
+        'is_safety_committee_member',
         'position',
         'department'
     )

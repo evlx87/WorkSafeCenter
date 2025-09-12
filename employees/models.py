@@ -59,6 +59,10 @@ class Employee(models.Model):
         default=False,
         verbose_name="В декретном отпуске"
     )
+    is_safety_committee_member = models.BooleanField(
+        default=False,
+        verbose_name="Член комиссии по охране труда"
+    )
     termination_date = models.DateField(
         null=True,
         blank=True,
