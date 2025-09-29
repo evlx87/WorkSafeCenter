@@ -7,14 +7,13 @@ class SafetyTrainingForm(forms.ModelForm):
     class Meta:
         model = SafetyTraining
         fields = [
+            'category',
             'training_type',
             'training_date',
-            'next_training_date',
             'instructor'
         ]
         widgets = {
             'training_date': forms.DateInput(attrs={'type': 'date'}),
-            'next_training_date': forms.DateInput(attrs={'type': 'date'}),
         }
 
     def __init__(self, *args, **kwargs):
