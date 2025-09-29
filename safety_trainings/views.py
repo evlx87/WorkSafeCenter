@@ -1,8 +1,12 @@
 from dateutil.relativedelta import relativedelta
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
+from django.urls import reverse_lazy
 from django.utils import timezone
+from django.views.generic import CreateView, UpdateView, DeleteView
 
+from employees.models import Employee
 from trainings.models import Training, TrainingProgram
+from .forms import SafetyTrainingForm
 from .models import SafetyTraining
 
 
@@ -44,3 +48,53 @@ def safety_trainings_list(request):
 
     return render(
         request, 'safety_trainings/safety_trainings_list.html', context)
+
+
+class SafetyTrainingCreateView(CreateView):
+    model = SafetyTraining
+    form_class = SafetyTrainingForm
+    template_name = 'safety_trainings/safetytraining_form.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['employee'] = get_object_or_404(
+            Employee, pk=self.kwargs['employee_pk'])
+        return context
+
+    def form_valid(self, form):
+        employee = get_object_or_404(Employee, pk=self.kwargs['employee_pk'])
+        form.instance.employee = employee
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('employees:employee_detail', kwargs={
+                            'pk': self.kwargs['employee_pk']})
+
+
+class SafetyTrainingUpdateView(UpdateView):
+    model = SafetyTraining
+    form_class = SafetyTrainingForm
+    template_name = 'safety_trainings/safetytraining_form.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['employee'] = self.object.employee
+        return context
+
+    def get_success_url(self):
+        return reverse_lazy('employees:employee_detail', kwargs={
+                            'pk': self.object.employee.pk})
+
+
+class SafetyTrainingDeleteView(DeleteView):
+    model = SafetyTraining
+    template_name = 'safety_trainings/safetytraining_confirm_delete.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['employee'] = self.object.employee
+        return context
+
+    def get_success_url(self):
+        return reverse_lazy('employees:employee_detail', kwargs={
+                            'pk': self.object.employee.pk})

@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}
+{% if form.instance.pk %}Редактирование инструктажа{% else %}Добавление инструктажа{% endif %}
+{% endblock %}
+
+{% block content %}
+<section>
+  <h2>
+    {% if form.instance.pk %}
+    Редактирование инструктажа для сотрудника: {{ employee.first_name }} {{ employee.last_name }}
+    {% else %}
+    Добавление нового инструктажа для сотрудника: {{ employee.first_name }} {{ employee.last_name }}
+    {% endif %}
+  </h2>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Сохранить</button>
+    <a href="{% url 'employees:employee_detail' employee.pk %}">Отмена</a>
+  </form>
+</section>
+{% endblock %}
