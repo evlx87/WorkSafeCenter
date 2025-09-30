@@ -7,11 +7,16 @@ from employees.models import Employee
 class Incident(models.Model):
     INCIDENT_TYPES = (
         ('ACCIDENT', 'Несчастный случай'),
-        ('VIOLATION', 'Нарушение'),
-        ('NEAR_MISS', 'Потенциальный инцидент'),
+        ('MICROTRAUMA', 'Микротравма'),
     )
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, verbose_name="Работник")
-    incident_type = models.CharField(max_length=20, choices=INCIDENT_TYPES, verbose_name="Тип инцидента")
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        verbose_name="Работник")
+    incident_type = models.CharField(
+        max_length=20,
+        choices=INCIDENT_TYPES,
+        verbose_name="Тип инцидента")
     incident_date = models.DateTimeField(verbose_name="Дата и время")
     description = models.TextField(verbose_name="Описание")
     actions_taken = models.TextField(blank=True, verbose_name="Принятые меры")

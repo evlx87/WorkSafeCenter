@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Подтверждение удаления{% endblock %}
+{% block content %}
+<section>
+  <h2>Удаление инцидента</h2>
+  <p>
+    Вы уверены, что хотите удалить инцидент "{{ object.get_incident_type_display }}" от {{ object.incident_date|date:"d.m.Y H:i" }} для сотрудника "{{ object.employee }}"?
+  </p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit">Да, удалить</button>
+    <a href="{% url 'incidents:incident_list' %}">Отмена</a>
+  </form>
+</section>
+{% endblock %}
