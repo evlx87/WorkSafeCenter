@@ -8,6 +8,7 @@ from employees.models import Employee
 from trainings.models import Training, TrainingProgram
 from .forms import SafetyTrainingForm
 from .models import SafetyTraining
+from django.db.models import Count
 
 
 # Create your views here.
@@ -29,7 +30,7 @@ def safety_trainings_list(request):
                 if today < expiration_date <= four_months_later:
                     approaching_count += 1
 
-        if total_count > 0:  # Показываем в сводке только те программы, по которым есть обучение
+        if total_count > 0:
             summary_data.append({
                 'name': program.name,
                 'hours': program.hours,
@@ -37,13 +38,28 @@ def safety_trainings_list(request):
                 'approaching_count': approaching_count,
             })
 
-    # код для получения списка инструктажей
-    trainings = SafetyTraining.objects.all()
+    safety_summary_query = SafetyTraining.objects \
+        .values('category', 'training_type') \
+        .annotate(employee_count=Count('id')) \
+        .order_by('category', 'training_type')
+
+    # Преобразуем для удобного отображения в шаблоне
+    category_map = dict(SafetyTraining.TRAINING_CATEGORIES)
+    type_map = dict(SafetyTraining.TRAINING_TYPES)
+
+    safety_summary = [
+        {
+            'category': category_map.get(item['category']),
+            'type': type_map.get(item['training_type']),
+            'count': item['employee_count']
+        }
+        for item in safety_summary_query
+    ]
 
     # Добавляем новые данные в контекст
     context = {
-        'trainings': trainings,
         'summary_data': summary_data,
+        'safety_summary': safety_summary,
     }
 
     return render(

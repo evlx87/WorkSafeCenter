@@ -10,7 +10,8 @@ class SafetyTrainingForm(forms.ModelForm):
             'category',
             'training_type',
             'training_date',
-            'instructor'
+            'instructor',
+            'local_act_details'
         ]
         widgets = {
             'training_date': forms.DateInput(attrs={'type': 'date'}),

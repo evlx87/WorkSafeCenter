@@ -29,15 +29,28 @@ WorkSafeCenter - Инструктажи и обучение
   {% endif %}
   <br>
   <hr>
-  <h2>Список инструктажей</h2>
-  {% if trainings %}
-  <ul>
-    {% for training in trainings %}
-    <li>{{ training.employee }} - {{ training.get_training_type_display }} ({{ training.training_date }})</li>
-    {% endfor %}
-  </ul>
+  <h2>Сводка по проведенным инструктажам</h2>
+  {% if safety_summary %}
+  <table border="1" cellpadding="5" cellspacing="0" width="100%">
+    <thead>
+      <tr>
+        <th>Категория инструктажа</th>
+        <th>Тип инструктажа</th>
+        <th>Количество человек, прошедших инструктаж</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in safety_summary %}
+      <tr>
+        <td>{{ item.category }}</td>
+        <td>{{ item.type }}</td>
+        <td>{{ item.count }} чел.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
   {% else %}
-  <p>Инструктажи не найдены.</p>
+  <p>Проведенные инструктажи не найдены.</p>
   {% endif %}
 </section>
 {% endblock %}
