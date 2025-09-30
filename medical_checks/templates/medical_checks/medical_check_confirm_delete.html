@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Подтверждение удаления{% endblock %}
+{% block content %}
+<section>
+  <h2>Удаление записи о медосмотре</h2>
+  <p>
+    Вы уверены, что хотите удалить запись о медосмотре от {{ object.check_date|date:"d.m.Y" }} для сотрудника "{{ object.employee }}"?
+  </p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit">Да, удалить</button>
+    <a href="{% url 'medical_checks:medical_check_list' %}">Отмена</a>
+  </form>
+</section>
+{% endblock %}

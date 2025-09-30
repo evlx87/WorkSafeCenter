@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}
+{% if form.instance.pk %}Редактирование медосмотра{% else %}Добавление медосмотра{% endif %}
+{% endblock %}
+{% block content %}
+<section>
+  <h2>
+    {% if form.instance.pk %}
+    Редактирование записи о медосмотре
+    {% else %}
+    Добавление новой записи о медосмотре
+    {% endif %}
+  </h2>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Сохранить</button>
+    <a href="{% url 'medical_checks:medical_check_list' %}">Отмена</a>
+  </form>
+</section>
+{% endblock %}
