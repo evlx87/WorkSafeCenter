@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}
+WorkSafeCenter - Статистика по инцидентам
+{% endblock %}
+{% block content %}
+<section>
+  <h2>Статистика по инцидентам</h2>
+  <p>Общее количество зарегистрированных инцидентов, сгруппированных по типам.</p>
+  {% if incident_stats %}
+  <table border="1" cellpadding="5" cellspacing="0" width="60%">
+    <thead>
+      <tr>
+        <th>Тип инцидента</th>
+        <th>Количество</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for stat in incident_stats %}
+      <tr>
+        <td>{{ stat.type_name }}</td>
+        <td>{{ stat.count }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Зарегистрированных инцидентов не найдено.</p>
+  {% endif %}
+  <br>
+  <a href="{% url 'reports:reports_index' %}">Назад к списку отчетов</a>
+</section>
+{% endblock %}
