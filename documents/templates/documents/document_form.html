@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Загрузка документа{% endblock %}
+{% block content %}
+<section>
+  <h2>Загрузка нового документа</h2>
+  
+  {# ВАЖНО: enctype="multipart/form-data" необходим для загрузки файлов #}
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Загрузить</button>
+    <a href="{% url 'documents:documents_list' %}">Отмена</a>
+  </form>
+</section>
+{% endblock %}

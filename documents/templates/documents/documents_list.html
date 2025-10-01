@@ -1,18 +1,41 @@
 {% extends 'base.html' %}
-
 {% block title %}
 WorkSafeCenter - Документы
 {% endblock %}
-
 {% block content %}
 <section>
   <h2>Список документов</h2>
+  <a href="{% url 'documents:document_create' %}" class="button">Загрузить документ</a>
+  <br><br>
   {% if documents %}
-  <ul>
-    {% for document in documents %}
-    <li>{{ document.title }} - {{ document.get_document_type_display }} ({{ document.upload_date }})</li>
-    {% endfor %}
-  </ul>
+  <table border="1" cellpadding="5" cellspacing="0" width="100%">
+    <thead>
+      <tr>
+        <th>Название</th>
+        <th>Тип</th>
+        <th>Сотрудник</th>
+        <th>Дата загрузки</th>
+        <th>Файл</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for document in documents %}
+      <tr>
+        <td>{{ document.title }}</td>
+        <td>{{ document.get_document_type_display }}</td>
+        <td>{{ document.employee|default:"Общий" }}</td>
+        <td>{{ document.upload_date|date:"d.m.Y" }}</td>
+        <td>
+          <a href="{{ document.file.url }}" target="_blank">Открыть</a>
+        </td>
+        <td>
+          <a href="{% url 'documents:document_delete' document.pk %}">Удалить</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
   {% else %}
   <p>Документы не найдены.</p>
   {% endif %}
