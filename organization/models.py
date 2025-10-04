@@ -6,8 +6,17 @@ class Department(models.Model):
         max_length=200,
         unique=True,
         verbose_name="Название отдела")
-    description = models.TextField(blank=True, verbose_name="Описание")
-    # Замените 'Employee' на строку 'employees.Employee'
+    description = models.TextField(
+        blank=True,
+        verbose_name="Описание")
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='children',
+        verbose_name="Вышестоящий отдел"
+    )
     head = models.ForeignKey(
         'employees.Employee',
         on_delete=models.SET_NULL,
@@ -32,7 +41,9 @@ class Position(models.Model):
         max_length=200,
         unique=True,
         verbose_name="Название должности")
-    description = models.TextField(blank=True, verbose_name="Описание")
+    description = models.TextField(
+        blank=True,
+        verbose_name="Описание")
     department = models.ForeignKey(
         Department,
         null=True,
@@ -51,11 +62,14 @@ class Position(models.Model):
 
 class OrganizationSafetyInfo(models.Model):
     school_name = models.CharField(
-        max_length=200, verbose_name="Название школы")
+        max_length=200,
+        verbose_name="Название школы")
     director_name = models.CharField(
-        max_length=200, verbose_name="ФИО директора")
+        max_length=200,
+        verbose_name="ФИО директора")
     ot_specialist_name = models.CharField(
-        max_length=200, verbose_name="ФИО специалиста по охране труда")
+        max_length=200,
+        verbose_name="ФИО специалиста по охране труда")
 
     class Meta:
         verbose_name = "Информация по охране труда организации"
@@ -71,10 +85,15 @@ class Site(models.Model):
         on_delete=models.CASCADE,
         verbose_name="Организация",
         related_name="sites")
-    name = models.CharField(max_length=200, verbose_name="Название площадки")
-    address = models.CharField(max_length=255, verbose_name="Адрес площадки")
+    name = models.CharField(
+        max_length=200,
+        verbose_name="Название площадки")
+    address = models.CharField(
+        max_length=255,
+        verbose_name="Адрес площадки")
     ot_responsible_name = models.CharField(
-        max_length=200, verbose_name="ФИО ответственного за ОТ на площадке")
+        max_length=200,
+        verbose_name="ФИО ответственного за ОТ на площадке")
 
     class Meta:
         verbose_name = "Площадка"
