@@ -1,6 +1,7 @@
 from dateutil.relativedelta import relativedelta
 from django.db import models
 
+from documents.models import Document
 from employees.models import Employee
 
 
@@ -48,6 +49,14 @@ class SafetyTraining(models.Model):
         blank=True,
         null=True,
         verbose_name="Основание для проведения (приказ, распоряжение)"
+    )
+    basis_document = models.ForeignKey(
+        Document,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Документ-основание",
+        help_text="Приказ, распоряжение или другой документ, на основании которого проводится инструктаж"
     )
 
     def save(self, *args, **kwargs):

@@ -11,7 +11,8 @@ class SafetyTrainingForm(forms.ModelForm):
             'training_type',
             'training_date',
             'instructor',
-            'local_act_details'
+            'local_act_details',
+            'basis_document'
         ]
         widgets = {
             'training_date': forms.DateInput(attrs={'type': 'date'}),
@@ -19,6 +20,6 @@ class SafetyTrainingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Добавляем CSS-классы для стилизации, если потребуется
+        self.fields['basis_document'].empty_label = "Выберите документ (необязательно)"
         for field_name, field in self.fields.items():
             field.widget.attrs['class'] = 'form-control'
