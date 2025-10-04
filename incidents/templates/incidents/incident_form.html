@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}
+{% if form.instance.pk %}Редактирование инцидента{% else %}Регистрация инцидента{% endif %}
+{% endblock %}
+{% block content %}
+<section>
+  <h2>
+    {% if form.instance.pk %}
+    Редактирование инцидента
+    {% else %}
+    Регистрация нового инцидента
+    {% endif %}
+  </h2>
+  <form method="post">
+    {% csrf_token %}
+
+    {# Отрисовываем поля вручную для лучшего контроля #}
+    <p>
+      <label for="{{ form.employee.id_for_label }}">Сотрудник:</label>
+      {{ form.employee }}
+    </p>
+
+    <p>
+      <label>Тип инцидента:</label>
+      <div style="margin-left: 20px;">
+        {% for radio in form.incident_type %}
+        <div style="margin-bottom: 10px;">
+          <label>
+            {{ radio.tag }}
+            <span style="font-weight: bold;">{{ radio.choice_label }}</span>
+          </label>
+          {% if radio.choice_value == 'ACCIDENT' %}
+            <div style="font-size: 0.9em; color: #666; margin-left: 25px;">
+              Событие, в результате которого работник получил травму или иное повреждение здоровья при исполнении трудовых обязанностей.
+            </div>
+          {% elif radio.choice_value == 'MICROTRAUMA' %}
+            <div style="font-size: 0.9em; color: #666; margin-left: 25px;">
+              Ссадины, кровоподтеки, ушибы мягких тканей и другие повреждения, не повлекшие расстройства здоровья или временной нетрудоспособности.
+            </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </p>
+
+    <p>
+      <label for="{{ form.incident_date.id_for_label }}">Дата и время:</label>
+      {{ form.incident_date }}
+    </p>
+
+    <p>
+      <label for="{{ form.description.id_for_label }}">Описание:</label>
+      {{ form.description }}
+    </p>
+
+    <p>
+      <label for="{{ form.actions_taken.id_for_label }}">Принятые меры:</label>
+      {{ form.actions_taken }}
+    </p>
+
+    <button type="submit">Сохранить</button>
+    <a href="{% url 'incidents:incident_list' %}">Отмена</a>
+  </form>
+</section>
+{% endblock %}

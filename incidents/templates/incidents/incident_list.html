@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}
+WorkSafeCenter - Инциденты
+{% endblock %}
+{% block content %}
+<section>
+  <h2>Список инцидентов</h2>
+  <a href="{% url 'incidents:incident_create' %}" class="button">Зарегистрировать инцидент</a>
+  <br><br>
+  {% if incidents %}
+  <table border="1" cellpadding="5" cellspacing="0" width="100%">
+    <thead>
+      <tr>
+        <th>Сотрудник</th>
+        <th>Тип инцидента</th>
+        <th>Дата и время</th>
+        <th>Описание</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for incident in incidents %}
+      <tr>
+        <td>{{ incident.employee }}</td>
+        <td>{{ incident.get_incident_type_display }}</td>
+        <td>{{ incident.incident_date|date:"d.m.Y H:i" }}</td>
+        <td>{{ incident.description|truncatewords:20 }}</td>
+        <td>
+          <a href="{% url 'incidents:incident_update' incident.pk %}">Редактировать</a> |
+          <a href="{% url 'incidents:incident_delete' incident.pk %}">Удалить</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Инциденты не найдены.</p>
+  {% endif %}
+</section>
+{% endblock %}

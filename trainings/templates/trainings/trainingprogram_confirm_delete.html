@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Подтверждение удаления{% endblock %}
+{% block content %}
+<section>
+  <h2>Удаление программы обучения</h2>
+  <p>Вы уверены, что хотите удалить программу "{{ object.name }}"?</p>
+  <p style="color:red;">Внимание! Удаление возможно, только если по этой программе нет записей об обучении сотрудников.</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit">Да, удалить</button>
+    <a href="{% url 'programs:program_list' %}">Отмена</a>
+  </form>
+</section>
+{% endblock %}

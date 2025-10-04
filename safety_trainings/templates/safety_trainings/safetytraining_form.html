@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}
+{% if form.instance.pk %}Редактирование инструктажа{% else %}Добавление инструктажа{% endif %}
+{% endblock %}
+
+{% block content %}
+<section>
+  <h2>
+    {% if form.instance.pk %}
+    Редактирование инструктажа для сотрудника: {{ employee.first_name }} {{ employee.last_name }}
+    {% else %}
+    Добавление нового инструктажа для сотрудника: {{ employee.first_name }} {{ employee.last_name }}
+    {% endif %}
+  </h2>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Сохранить</button>
+    <a href="{% url 'employees:employee_detail' employee.pk %}">Отмена</a>
+  </form>
+</section>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const trainingTypeSelect = document.getElementById('id_training_type');
+    // Django автоматически создает div-обертку для поля формы, но лучше найти родителя p
+    const localActFieldRow = document.getElementById('id_local_act_details').closest('p');
+
+    function toggleLocalActField() {
+      const selectedType = trainingTypeSelect.value;
+      // Поле не нужно только для вводного инструктажа ('INTRO')
+      if (selectedType === 'INTRO') {
+        localActFieldRow.style.display = 'none';
+      } else {
+        localActFieldRow.style.display = 'block';
+      }
+    }
+
+    // Вызываем функцию при загрузке страницы, чтобы установить правильное состояние
+    toggleLocalActField();
+
+    // Добавляем обработчик событий на изменение типа инструктажа
+    trainingTypeSelect.addEventListener('change', toggleLocalActField);
+  });
+</script>
+{% endblock %}

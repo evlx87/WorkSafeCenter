@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}
+Карточка сотрудника
+{% endblock %}
+{% block content %}
+<section>
+  <h2>Карточка сотрудника: {{ employee.last_name }} {{ employee.first_name }}</h2>
+
+  {% if employee.termination_date %}
+  <div style="border: 2px solid red; padding: 10px; margin-bottom: 20px; border-radius: 5px;">
+    <h3 style="color: red; margin-top: 0;">Сотрудник уволен</h3>
+    <p><strong>Дата увольнения:</strong> {{ employee.termination_date|date:"d.m.Y" }}</p>
+    <p><strong>Приказ №:</strong> {{ employee.termination_order_number }}</p>
+  </div>
+  {% endif %}
+  <p><strong>Должность:</strong> {{ employee.position }}</p>
+  <p><strong>Отдел:</strong> {{ employee.department }}</p>
+  {% if employee.is_safety_committee_member %}
+  <p><strong>Особый статус:</strong> Член комиссии по охране труда</p>
+  {% endif %}
+  <p><strong>Дата найма:</strong> {{ employee.hire_date }}</p>
+  <p><strong>Email:</strong> {{ employee.email|default:"Не указан" }}</p>
+  <hr>
+
+  <h3>Профессиональное обучение</h3>
+  <a href="{% url 'trainings:training_create' employee.pk %}" class="button">Добавить обучение</a>
+  <br><br>
+  {% if employee.trainings.all %}
+  <table border="1" cellpadding="5" cellspacing="0" width="100%">
+    <thead>
+    <tr>
+      <th>Программа</th>
+      <th>Часы</th>
+      <th>Дата</th>
+      <th>Периодичность</th>
+      <th>Документ</th>
+      <th>Действия</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for training in employee.trainings.all %}
+    <tr>
+      <td>{{ training.program.name }}</td>
+      <td>{{ training.program.hours }}</td>
+      <td>{{ training.training_date|date:"d.m.Y" }}</td>
+      <td>{{ training.program.frequency_months }} мес.</td>
+      <td>
+        {% if training.document_scan %}
+        <a href="{{ training.document_scan.url }}" target="_blank">Смотреть PDF</a>
+        {% else %}
+        Нет файла
+        {% endif %}
+      </td>
+      <td>
+        <a href="{% url 'trainings:training_update' employee.pk training.pk %}">Редактировать</a> |
+        <a href="{% url 'trainings:training_delete' employee.pk training.pk %}">Удалить</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Информация об обучении отсутствует.</p>
+  {% endif %}
+  <hr>
+
+  <h3>Инструктажи по охране труда</h3>
+  <a href="{% url 'safety_trainings:safety_training_create' employee.pk %}" class="button">Добавить инструктаж</a>
+  <br><br>
+  {% if employee.safetytraining_set.all %}
+  <table border="1" cellpadding="5" cellspacing="0" width="100%">
+    <thead>
+    <tr>
+      <th>Категория</th>
+      <th>Тип инструктажа</th>
+      <th>Дата проведения</th>
+      <th>Дата следующего</th>
+      <th>Инструктор</th>
+      <th>Действия</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for st in employee.safetytraining_set.all %}
+    <tr>
+      <td>{{ st.get_category_display }}</td>
+      <td>{{ st.get_training_type_display }}</td>
+      <td>{{ st.training_date|date:"d.m.Y" }}</td>
+      <td>{{ st.instructor }}</td>
+      <td>
+        <a href="{% url 'safety_trainings:safety_training_update' employee.pk st.pk %}">Редактировать</a> |
+        <a href="{% url 'safety_trainings:safety_training_delete' employee.pk st.pk %}">Удалить</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Информация об инструктажах отсутствует.</p>
+  {% endif %}
+</section>
+{% endblock %}

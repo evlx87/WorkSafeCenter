@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}WorkSafeCenter{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <link rel="icon" href="{% static 'favicon.ico' %}">
+</head>
+<body>
+<header>
+  <a href="{% url 'index' %}" class="header-logo">
+    <h1>WorkSafeCenter</h1>
+  </a>
+  <div class="button-container">
+    <a href="{% url 'employees:employee_list' %}">Список сотрудников</a>
+    <a href="{% url 'organization:organization_info' %}">Информация об организации</a>
+    <a href="{% url 'safety_trainings_list' %}">Инструктажи и обучение</a>
+    <a href="{% url 'programs:program_list' %}">Программы обучения</a>
+    <a href="{% url 'documents:documents_list' %}">Документы</a>
+    <a href="{% url 'medical_checks:medical_check_list' %}">Медосмотры</a>
+    <a href="{% url 'incidents:incident_list' %}">Несчастные случаи и микротравмы</a>
+    <a href="{% url 'reports:reports_index' %}">Отчеты</a>
+    <a href="{% url 'notifications:notification_list' %}">Уведомления</a>
+  </div>
+</header>
+<main>
+  {% block content %}
+  {% endblock %}
+</main>
+</body>
+</html>

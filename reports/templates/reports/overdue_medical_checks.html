@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}
+WorkSafeCenter - Отчёт по просроченным медосмотрам
+{% endblock %}
+{% block content %}
+<section>
+  <h2>Просроченные медосмотры</h2>
+  <p>Сотрудники, которым необходимо пройти медосмотр в ближайшие 30 дней.</p>
+  {% if employees %}
+  <table border="1" cellpadding="5" cellspacing="0" width="100%">
+    <thead>
+      <tr>
+        <th>ФИО</th>
+        <th>Должность</th>
+        <th>Отдел</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for employee in employees %}
+      <tr>
+        <td>
+          <a href="{% url 'employees:employee_detail' employee.pk %}">{{ employee }}</a>
+        </td>
+        <td>{{ employee.position }}</td>
+        <td>{{ employee.department|default:"-" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Сотрудников с просроченными медосмотрами нет.</p>
+  {% endif %}
+  <br>
+  <a href="{% url 'reports:reports_index' %}">Назад к списку отчетов</a>
+</section>
+{% endblock %}

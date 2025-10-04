@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}
+WorkSafeCenter - Отчёт по просроченным инструктажам
+{% endblock %}
+
+{% block content %}
+<section>
+  <h2>Просроченные инструктажи</h2>
+  {% if employees %}
+  <ul>
+    {% for employee in employees %}
+    <li>{{ employee.last_name }} {{ employee.first_name }} - {{ employee.position }} ({{ employee.department }})</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Просроченных инструктажей нет.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -14,9 +14,26 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+
+from safety_trainings.views import safety_trainings_list
+from . import settings
+from .views import index
 
 urlpatterns = [
+    path('', index, name='index'),
     path('admin/', admin.site.urls),
-]
+    path('employees/', include('employees.urls', namespace='employees')),
+    path('employees/<int:employee_pk>/trainings/', include('trainings.urls')),
+    path('employees/<int:employee_pk>/safety-trainings/', include('safety_trainings.urls', namespace='safety_trainings')),
+    path('trainings/programs/', include('trainings.program_urls', namespace='programs')),
+    path('organization/', include('organization.urls', namespace='organization')),
+    path('safety-trainings/', safety_trainings_list, name='safety_trainings_list'),
+    path('documents/', include('documents.urls', namespace='documents')),
+    path('medical-checks/', include('medical_checks.urls', namespace='medical_checks')),
+    path('incidents/', include('incidents.urls', namespace='incidents')),
+    path('notifications/', include('notifications.urls', namespace='notifications')),
+    path('reports/', include('reports.urls', namespace='reports')),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
