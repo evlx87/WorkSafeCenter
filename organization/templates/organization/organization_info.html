@@ -1,51 +1,162 @@
 {% extends 'base.html' %}
-{% block title %}WorkSafeCenter - Информация об организации{% endblock %}
+{% block title %}WorkSafeCenter - Структура организации{% endblock %}
+
 {% block content %}
-<section>
-  <h2>Отделы</h2>
-  <a href="{% url 'organization:department_create' %}">Добавить отдел</a>
-  <ul>
-    {% for dept in departments %}
-    <li>{{ dept.name }} ({{ dept.head }})
-      <a href="{% url 'organization:department_update' dept.pk %}">Редактировать</a>
-      <a href="{% url 'organization:department_delete' dept.pk %}">Удалить</a>
-    </li>
-    {% endfor %}
-  </ul>
+<section style="background: transparent; box-shadow: none; padding: 0;">
+    <div class="section-header" style="border-bottom: none; margin-bottom: 20px;">
+        <h2>Структура и реквизиты организации</h2>
+    </div>
 
-  <h2>Должности</h2>
-  <a href="{% url 'organization:position_create' %}">Добавить должность</a>
-  <ul>
-    {% for pos in positions %}
-    <li>{{ pos.name }} ({{ pos.department }})
-      <a href="{% url 'organization:position_update' pos.pk %}">Редактировать</a>
-      <a href="{% url 'organization:position_delete' pos.pk %}">Удалить</a>
-    </li>
-    {% endfor %}
-  </ul>
+    <div class="profile-card" style="margin-bottom: 30px; border-left: 5px solid var(--accent-color);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h3 class="profile-title" style="border: none; margin-bottom: 10px;">
+                    {{ safety_info.school_name|default:"Название организации не указано" }}
+                </h3>
+                <p style="color: #666; margin-top: 0; font-size: 0.9em;">
+                    Общие сведения по охране труда
+                </p>
+            </div>
+            <a href="{% url 'organization:safety_info_edit' %}" class="button">
+                ✏️ Редактировать реквизиты
+            </a>
+        </div>
 
-  <h2>Информация по охране труда</h2>
-  {% if safety_info %}
-  <p>Название школы: {{ safety_info.school_name }}</p>
-  <p>Директор: {{ safety_info.director_name }}</p>
-  <p>Специалист по ОТ: {{ safety_info.ot_specialist_name }}</p>
-  <p>Дата оценки рисков: {{ safety_info.risk_assessment_date|default:"Не указана" }}</p>
-  <p><a href="{% url 'organization:safety_info_edit' %}">Редактировать информацию по ОТ</a></p>
-  {% else %}
-  <p>Информация не заполнена. <a href="{% url 'organization:safety_info_edit' %}">Заполнить</a></p>
-  {% endif %}
-
-  <h2>Площадки</h2>
-  <a href="{% url 'organization:site_create' %}">Добавить площадку</a>
-  <ul>
-    {% for site in sites %}
-    <li>{{ site.name }} ({{ site.address }}) - Ответственный: {{ site.ot_responsible_name }}
-      <br><a href="{% url 'organization:site_update' site.pk %}">Редактировать</a>
-      <a href="{% url 'organization:site_delete' site.pk %}">Удалить</a>
-    </li>
-    {% empty %}
-    <li>Площадки не добавлены.</li>
-    {% endfor %}
-  </ul>
+        {% if safety_info %}
+        <div class="info-grid" style="margin-top: 20px;">
+            <div class="info-item">
+                <label>Директор (Руководитель)</label>
+                <span style="font-size: 1.1em;">{{ safety_info.director_name }}</span>
+            </div>
+            <div class="info-item">
+                <label>Специалист по охране труда</label>
+                <span style="font-size: 1.1em;">{{ safety_info.ot_specialist_name }}</span>
+            </div>
+            <div class="info-item">
+                <label>Дата оценки профессиональных рисков</label>
+                <span>{{ safety_info.risk_assessment_date|date:"d.m.Y"|default:"Не проводилась" }}</span>
+            </div>
+        </div>
+        {% else %}
+        <div style="background-color: #fff3cd; color: #856404; padding: 15px; border-radius: 4px; margin-top: 15px;">
+            ⚠️ Данные об организации еще не заполнены. Нажмите кнопку "Редактировать реквизиты", чтобы внести информацию.
+        </div>
+        {% endif %}
+    </div>
 </section>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+
+    <section>
+        <div class="section-header">
+            <h3>📂 Отделы</h3>
+            <a href="{% url 'organization:department_create' %}" class="button" style="padding: 5px 10px; font-size: 0.9em;">+ Добавить</a>
+        </div>
+        {% if departments %}
+        <table style="font-size: 0.9em;">
+            <thead>
+                <tr>
+                    <th>Название / Руководитель</th>
+                    <th style="width: 80px;">Действ.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dept in departments %}
+                <tr>
+                    <td>
+                        <strong>{{ dept.name }}</strong>
+                        {% if dept.head %}
+                        <div style="font-size: 0.85em; color: #666; margin-top: 3px;">
+                            👤 {{ dept.head.last_name }} {{ dept.head.first_name|slice:":1" }}.
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'organization:department_update' dept.pk %}" title="Редактировать">✏️</a>
+                        <a href="{% url 'organization:department_delete' dept.pk %}" title="Удалить" style="color: var(--danger-color);">🗑️</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color: #777; font-style: italic;">Отделы не созданы.</p>
+        {% endif %}
+    </section>
+
+    <section>
+        <div class="section-header">
+            <h3>👔 Должности</h3>
+            <a href="{% url 'organization:position_create' %}" class="button" style="padding: 5px 10px; font-size: 0.9em;">+ Добавить</a>
+        </div>
+        {% if positions %}
+        <table style="font-size: 0.9em;">
+            <thead>
+                <tr>
+                    <th>Название / Привязка</th>
+                    <th style="width: 80px;">Действ.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pos in positions %}
+                <tr>
+                    <td>
+                        <strong>{{ pos.name }}</strong>
+                        {% if pos.department %}
+                        <div style="font-size: 0.85em; color: #666; margin-top: 3px;">
+                            🏢 {{ pos.department.name }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'organization:position_update' pos.pk %}" title="Редактировать">✏️</a>
+                        <a href="{% url 'organization:position_delete' pos.pk %}" title="Удалить" style="color: var(--danger-color);">🗑️</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color: #777; font-style: italic;">Должности не созданы.</p>
+        {% endif %}
+    </section>
+</div>
+
+<section>
+    <div class="section-header">
+        <h3>📍 Производственные площадки / Филиалы</h3>
+        <a href="{% url 'organization:site_create' %}" class="button">+ Добавить площадку</a>
+    </div>
+
+    {% if sites %}
+    <table>
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Адрес</th>
+                <th>Ответственный за ОТ</th>
+                <th style="width: 100px;">Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for site in sites %}
+            <tr>
+                <td><strong>{{ site.name }}</strong></td>
+                <td>{{ site.address }}</td>
+                <td>{{ site.ot_responsible_name }}</td>
+                <td>
+                    <a href="{% url 'organization:site_update' site.pk %}" style="margin-right: 10px;">✏️</a>
+                    <a href="{% url 'organization:site_delete' site.pk %}" style="color: var(--danger-color);">🗑️</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="text-align: center; padding: 20px; color: #777;">
+        <p>Площадки еще не добавлены. Добавьте филиалы или территории для ведения учета по местам.</p>
+    </div>
+    {% endif %}
+</section>
+
 {% endblock %}
