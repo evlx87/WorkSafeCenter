@@ -1,66 +1,90 @@
 {% extends 'base.html' %}
-{% block title %}
-WorkSafeCenter - Документы
-{% endblock %}
+{% block title %}WorkSafeCenter - Реестр документов{% endblock %}
+
 {% block content %}
 <section>
-  <h2>Список документов</h2>
-  <a href="{% url 'documents:document_create' %}" class="button">Загрузить документ</a>
-  <br><br>
-  <form method="get" action="{% url 'documents:documents_list' %}" style="margin-bottom: 20px;">
-    <div style="display: flex; gap: 15px; align-items: center;">
-      <input
-              type="text"
-              name="search_query"
-              placeholder="Поиск по названию..."
-              value="{{ search_query }}"
-      >
-      <select name="doc_type">
-        <option value="">Все типы</option>
-        {% for value, name in doc_types %}
-        <option
-                value="{{ value }}"
-                {% if value == selected_doc_type %}selected{% endif %}
-        >
-        {{ name }}
-        </option>
-        {% endfor %}
-      </select>
-      <button type="submit">Найти</button>
-      <a href="{% url 'documents:documents_list' %}">Сбросить</a>
+    <div class="section-header">
+        <h2>📂 Реестр нормативных документов и актов</h2>
+        <a href="{% url 'documents:document_create' %}" class="button"> + Добавить документ</a>
     </div>
-  </form>
-  {% if documents %}
-  <table border="1" cellpadding="5" cellspacing="0" width="100%">
-    <thead>
-      <tr>
-        <th>Название</th>
-        <th>Тип</th>
-        <th>Сотрудник</th>
-        <th>Дата загрузки</th>
-        <th>Файл</th>
-        <th>Действия</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for document in documents %}
-      <tr>
-        <td>{{ document.title }}</td>
-        <td>{{ document.get_document_type_display }}</td>
-        <td>{{ document.employee|default:"Общий" }}</td>
-        <td>{{ document.upload_date|date:"d.m.Y" }}</td>
-        <td>
-          <a href="{{ document.file.url }}" target="_blank">Открыть</a>
-        </td>
-        <td>
-          <a href="{% url 'documents:document_delete' document.pk %}">Удалить</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p>Документы не найдены.</p>
-  {% endif %}
+
+    <form method="get" action="{% url 'documents:documents_list' %}" class="filter-toolbar">
+        <input
+            type="text"
+            name="search_query"
+            placeholder="🔍 Поиск по названию..."
+            value="{{ search_query }}"
+        >
+        <select name="category">
+            <option value="">🗂️ Все категории</option>
+            {% for cat in categories %}
+            <option value="{{ cat.pk }}" {% if cat.pk|stringformat:"s" == selected_category %}selected{% endif %}>
+                {{ cat.name }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Применить</button>
+        <a href="{% url 'documents:documents_list' %}" style="color: #666; margin-left: 10px; font-size: 0.9em;">Сбросить</a>
+    </form>
+
+    {% if documents %}
+    <table>
+        <thead>
+        <tr>
+            <th>Название и категория</th>
+            <th>Срок действия до</th>
+            <th>Статус</th>
+            <th>Файл</th>
+            <th style="width: 120px;">Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for doc in documents %}
+        <tr {% if doc.is_overdue %}style="background-color: #fef5f5;"{% endif %}>
+            <td>
+                <a href="{% url 'documents:document_detail' doc.pk %}" style="font-weight: bold; color: var(--primary-color);">
+                    {{ doc.title }}
+                </a>
+                <div style="font-size: 0.85em; color: #666; margin-top: 3px;">
+                    Категория: {{ doc.category.name }}
+                </div>
+            </td>
+            <td>
+                {% if doc.end_date %}
+                    {{ doc.end_date|date:"d.m.Y" }}
+                {% else %}
+                    Бессрочно
+                {% endif %}
+            </td>
+            <td>
+                {% if doc.is_overdue %}
+                    <span class="badge badge-danger">Просрочен</span>
+                {% elif doc.days_to_expire < 90 and doc.end_date %}
+                    <span class="badge badge-warning">Истекает скоро</span>
+                {% else %}
+                    <span class="badge badge-success">Актуален</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if doc.document_file %}
+                    <a href="{{ doc.document_file.url }}" target="_blank" style="color: var(--accent-color);">
+                        ⬇️ Скачать
+                    </a>
+                {% else %}
+                    <span style="color: #ccc;">Нет файла</span>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{% url 'documents:document_update' doc.pk %}" title="Редактировать">✏️</a>
+                <a href="{% url 'documents:document_delete' doc.pk %}" title="Удалить" style="color: var(--danger-color); margin-left: 10px;">🗑️</a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; padding: 30px; color: #777;">В этом разделе документы не найдены.</p>
+    {% endif %}
 </section>
 {% endblock %}

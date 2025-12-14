@@ -1,48 +1,87 @@
 {% extends 'base.html' %}
-{% block title %}
-WorkSafeCenter - Медосмотры
-{% endblock %}
+{% block title %}WorkSafeCenter - Реестр медосмотров{% endblock %}
+
 {% block content %}
 <section>
-  <h2>Список медосмотров</h2>
-  <a href="{% url 'medical_checks:medical_check_create' %}" class="button">Добавить запись о медосмотре</a>
-  <br><br>
-  {% if medical_checks %}
-  <table border="1" cellpadding="5" cellspacing="0" width="100%">
-    <thead>
-      <tr>
-        <th>Сотрудник</th>
-        <th>Дата осмотра</th>
-        <th>Дата следующего осмотра</th>
-        <th>Результаты</th>
-        <th>Статус</th>
-        <th>Действия</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for check in medical_checks %}
-      <tr>
-        <td>{{ check.employee }}</td>
-        <td>{{ check.check_date|date:"d.m.Y" }}</td>
-        <td>{{ check.next_check_date|date:"d.m.Y"|default:"-" }}</td>
-        <td>{{ check.result|truncatewords:20 }}</td>
-        <td>
-          {% if check.is_valid %}
-            <span style="color: green;">Действителен</span>
-          {% else %}
-            <span style="color: red;">Не действителен</span>
-          {% endif %}
-        </td>
-        <td>
-          <a href="{% url 'medical_checks:medical_check_update' check.pk %}">Редактировать</a> |
-          <a href="{% url 'medical_checks:medical_check_delete' check.pk %}">Удалить</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p>Записи о медосмотрах не найдены.</p>
-  {% endif %}
+    <div class="section-header">
+        <h2>🩺 Журнал периодических медосмотров</h2>
+        <a href="{% url 'medical_checks:medical_check_create' %}" class="button"> + Зарегистрировать медосмотр</a>
+    </div>
+
+    <form method="get" action="{% url 'medical_checks:medical_check_list' %}" class="filter-toolbar">
+        <input
+            type="text"
+            name="search_query"
+            placeholder="🔍 Поиск сотрудника..."
+            value="{{ search_query }}"
+        >
+        <select name="status">
+            <option value="">Все статусы</option>
+            <option value="overdue" {% if selected_status == "overdue" %}selected{% endif %}>Просроченные</option>
+            <option value="upcoming" {% if selected_status == "upcoming" %}selected{% endif %}>Скоро истекают</option>
+            <option value="valid" {% if selected_status == "valid" %}selected{% endif %}>Действующие</option>
+        </select>
+
+        <button type="submit">Применить</button>
+        <a href="{% url 'medical_checks:medical_check_list' %}" style="color: #666; margin-left: 10px; font-size: 0.9em;">Сбросить</a>
+    </form>
+
+    {% if medical_checks %}
+    <table>
+        <thead>
+        <tr>
+            <th>Сотрудник / Должность</th>
+            <th>Дата прохождения</th>
+            <th>Срок действия до</th>
+            <th>Результат</th>
+            <th style="width: 100px;">Статус</th>
+            <th style="width: 80px;">Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for check in medical_checks %}
+        <tr {% if check.is_overdue %}style="background-color: #fef5f5;"{% endif %}>
+            <td>
+                <a href="{% url 'employees:employee_detail' check.employee.pk %}" style="font-weight: bold; color: var(--primary-color);">
+                    {{ check.employee.last_name }} {{ check.employee.first_name }}
+                </a>
+                <div style="font-size: 0.85em; color: #666; margin-top: 3px;">
+                    {{ check.employee.position|default:"Нет должности" }}
+                </div>
+            </td>
+            <td>{{ check.check_date|date:"d.m.Y" }}</td>
+            <td>
+                {% if check.next_check_date %}
+                    <strong>{{ check.next_check_date|date:"d.m.Y" }}</strong>
+                {% else %}
+                    Бессрочно
+                {% endif %}
+            </td>
+            <td>
+                {% if check.is_fit %}
+                    <span style="color: var(--success-color); font-weight: 600;">Годен</span>
+                {% else %}
+                    <span style="color: var(--danger-color); font-weight: 600;">Не годен</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if check.is_overdue %}
+                    <span class="badge badge-danger">Просрочен</span>
+                {% elif check.days_to_expire < 60 %}
+                    <span class="badge badge-warning">Менее 2 мес.</span>
+                {% else %}
+                    <span class="badge badge-success">Действует</span>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{% url 'medical_checks:medical_check_update' check.pk %}" title="Редактировать">✏️</a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; padding: 30px; color: #777;">Медосмотры не найдены.</p>
+    {% endif %}
 </section>
 {% endblock %}
