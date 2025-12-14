@@ -1,10 +1,9 @@
-from dateutil.relativedelta import relativedelta
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import CreateView, UpdateView, DeleteView, ListView
+from django.views.generic import CreateView, UpdateView, DeleteView
 from django.views.generic.detail import DetailView
 
 from employees.models import Employee
@@ -41,10 +40,12 @@ def training_program_list(request):
     total_programs_count = programs.count()
     total_employees_count = Employee.objects.count()
 
-    # Считаем сотрудников с просроченным ВНУТРЕННИМ инструктажем (SafetyTraining)
+    # Считаем сотрудников с просроченным ВНУТРЕННИМ инструктажем
+    # (SafetyTraining)
     overdue_employees_count = SafetyTraining.objects.filter(
-        next_training_date__lt=timezone.now().date()
-    ).values('employee').annotate(count=Count('employee')).filter(count__gt=0).count()
+        next_training_date__lt=timezone.now().date()).values('employee').annotate(
+        count=Count('employee')).filter(
+            count__gt=0).count()
 
     # 3. Формирование контекста
     context = {
@@ -64,11 +65,10 @@ def training_program_list(request):
 # ----------------------------------------------------------------------
 # 2. CRUD ДЛЯ ЗАПИСЕЙ О ПРОХОЖДЕНИИ ИНСТРУКТАЖА (SafetyTraining)
 # ----------------------------------------------------------------------
-
 class SafetyTrainingCreateView(CreateView):
     model = SafetyTraining
     form_class = SafetyTrainingForm
-    template_name = 'trainings/safetytraining_form.html'
+    template_name = 'trainings/safety_training_form.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -89,7 +89,7 @@ class SafetyTrainingCreateView(CreateView):
 class SafetyTrainingUpdateView(UpdateView):
     model = SafetyTraining
     form_class = SafetyTrainingForm
-    template_name = 'trainings/safetytraining_form.html'
+    template_name = 'trainings/safety_training_form.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -103,7 +103,7 @@ class SafetyTrainingUpdateView(UpdateView):
 
 class SafetyTrainingDeleteView(DeleteView):
     model = SafetyTraining
-    template_name = 'trainings/safetytraining_confirm_delete.html'
+    template_name = 'trainings/safety_training_confirm_delete.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -118,7 +118,6 @@ class SafetyTrainingDeleteView(DeleteView):
 # ----------------------------------------------------------------------
 # 3. CRUD ДЛЯ ЗАПИСЕЙ О ПРОХОЖДЕНИИ ОБУЧЕНИЯ (Training)
 # ----------------------------------------------------------------------
-
 class TrainingCreateView(CreateView):
     model = Training
     form_class = TrainingForm
@@ -172,9 +171,6 @@ class TrainingDeleteView(DeleteView):
 # ----------------------------------------------------------------------
 # 4. CRUD ДЛЯ ПРОГРАММ ОБУЧЕНИЯ (TrainingProgram)
 # ----------------------------------------------------------------------
-
-# TrainingProgramListView был удален, так как его заменяет training_program_list
-
 class TrainingProgramDetailView(DetailView):
     model = TrainingProgram
     template_name = 'trainings/program_detail.html'
@@ -185,7 +181,6 @@ class TrainingProgramCreateView(CreateView):
     model = TrainingProgram
     form_class = TrainingProgramForm
     template_name = 'trainings/training_program_form.html'
-    # *** КОРРЕКЦИЯ 2: ИСПРАВЛЕННЫЙ success_url ***
     success_url = reverse_lazy('trainings:training_program_list')
 
 
@@ -193,12 +188,10 @@ class TrainingProgramUpdateView(UpdateView):
     model = TrainingProgram
     form_class = TrainingProgramForm
     template_name = 'trainings/training_program_form.html'
-    # *** КОРРЕКЦИЯ 2: ИСПРАВЛЕННЫЙ success_url ***
     success_url = reverse_lazy('trainings:training_program_list')
 
 
 class TrainingProgramDeleteView(DeleteView):
     model = TrainingProgram
     template_name = 'trainings/training_program_confirm_delete.html'
-    # *** КОРРЕКЦИЯ 2: ИСПРАВЛЕННЫЙ success_url ***
     success_url = reverse_lazy('trainings:training_program_list')
