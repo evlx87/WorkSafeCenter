@@ -11,15 +11,12 @@ from .forms import InstructionForm, TrainingForm, TrainingProgramForm
 from .models import Instruction, Training, TrainingProgram
 
 
-# 1. ГЛАВНАЯ СТРАНИЦА: СПИСОК ПРОГРАММ (TrainingProgram)
 def training_program_list(request):
     """
     Отображает список всех программ обучения с подсчетом сотрудников,
     прошедших их, и сводными данными для панели управления.
     """
     programs = TrainingProgram.objects.all()
-
-    # Логика фильтрации (взята из предыдущих шагов)
     search_query = request.GET.get('search_query')
     selected_type = request.GET.get('training_type')
 
@@ -29,25 +26,17 @@ def training_program_list(request):
     if selected_type:
         programs = programs.filter(training_type=selected_type)
 
-    # *** КОРРЕКЦИЯ 1: ОПТИМИЗАЦИЯ N+1 QUERIES ***
-    # Используем .annotate() для подсчета прохождений обучения (Training)
-    # total_count будет доступен через program.total_count в шаблоне
     programs_with_counts = programs.annotate(
         total_count=Count('training')
     )
 
-    # 2. Расчет общих сводных данных для карточек
     total_programs_count = programs.count()
     total_employees_count = Employee.objects.count()
-
-    # Считаем сотрудников с просроченным ВНУТРЕННИМ инструктажем
-    # (SafetyTraining)
     overdue_employees_count = Instruction.objects.filter(
         next_training_date__lt=timezone.now().date()).values('employee').annotate(
         count=Count('employee')).filter(
             count__gt=0).count()
 
-    # 3. Формирование контекста
     context = {
         'programs': programs_with_counts,
         'total_programs_count': total_programs_count,
@@ -55,16 +44,12 @@ def training_program_list(request):
         'overdue_employees_count': overdue_employees_count,
         'search_query': search_query,
         'selected_type': selected_type,
-        # Передаем CHOICES для использования в фильтре шаблона
         'type_choices': TrainingProgram.TRAINING_TYPES,
     }
 
     return render(request, 'trainings/training_program_list.html', context)
 
 
-# ----------------------------------------------------------------------
-# 2. CRUD ДЛЯ ЗАПИСЕЙ О ПРОХОЖДЕНИИ ИНСТРУКТАЖА (SafetyTraining)
-# ----------------------------------------------------------------------
 class SafetyTrainingCreateView(CreateView):
     model = Instruction
     form_class = InstructionForm
@@ -115,9 +100,6 @@ class SafetyTrainingDeleteView(DeleteView):
             'pk': self.object.employee.pk})
 
 
-# ----------------------------------------------------------------------
-# 3. CRUD ДЛЯ ЗАПИСЕЙ О ПРОХОЖДЕНИИ ОБУЧЕНИЯ (Training)
-# ----------------------------------------------------------------------
 class TrainingCreateView(CreateView):
     model = Training
     form_class = TrainingForm
@@ -168,9 +150,6 @@ class TrainingDeleteView(DeleteView):
             'pk': self.object.employee.pk})
 
 
-# ----------------------------------------------------------------------
-# 4. CRUD ДЛЯ ПРОГРАММ ОБУЧЕНИЯ (TrainingProgram)
-# ----------------------------------------------------------------------
 class TrainingProgramDetailView(DetailView):
     model = TrainingProgram
     template_name = 'trainings/program_detail.html'
