@@ -7,8 +7,8 @@ from django.views.generic import CreateView, UpdateView, DeleteView
 from django.views.generic.detail import DetailView
 
 from employees.models import Employee
-from .forms import SafetyTrainingForm, TrainingForm, TrainingProgramForm
-from .models import SafetyTraining, Training, TrainingProgram
+from .forms import InstructionForm, TrainingForm, TrainingProgramForm
+from .models import Instruction, Training, TrainingProgram
 
 
 # 1. ГЛАВНАЯ СТРАНИЦА: СПИСОК ПРОГРАММ (TrainingProgram)
@@ -42,7 +42,7 @@ def training_program_list(request):
 
     # Считаем сотрудников с просроченным ВНУТРЕННИМ инструктажем
     # (SafetyTraining)
-    overdue_employees_count = SafetyTraining.objects.filter(
+    overdue_employees_count = Instruction.objects.filter(
         next_training_date__lt=timezone.now().date()).values('employee').annotate(
         count=Count('employee')).filter(
             count__gt=0).count()
@@ -66,8 +66,8 @@ def training_program_list(request):
 # 2. CRUD ДЛЯ ЗАПИСЕЙ О ПРОХОЖДЕНИИ ИНСТРУКТАЖА (SafetyTraining)
 # ----------------------------------------------------------------------
 class SafetyTrainingCreateView(CreateView):
-    model = SafetyTraining
-    form_class = SafetyTrainingForm
+    model = Instruction
+    form_class = InstructionForm
     template_name = 'trainings/safety_training_form.html'
 
     def get_context_data(self, **kwargs):
@@ -87,8 +87,8 @@ class SafetyTrainingCreateView(CreateView):
 
 
 class SafetyTrainingUpdateView(UpdateView):
-    model = SafetyTraining
-    form_class = SafetyTrainingForm
+    model = Instruction
+    form_class = InstructionForm
     template_name = 'trainings/safety_training_form.html'
 
     def get_context_data(self, **kwargs):
@@ -102,7 +102,7 @@ class SafetyTrainingUpdateView(UpdateView):
 
 
 class SafetyTrainingDeleteView(DeleteView):
-    model = SafetyTraining
+    model = Instruction
     template_name = 'trainings/safety_training_confirm_delete.html'
 
     def get_context_data(self, **kwargs):

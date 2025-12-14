@@ -1,21 +1,7 @@
 from django.urls import path
-from .views import (
-    # 1. Главная страница
-    training_program_list,
-    # 2. Программы обучения (TrainingProgram CRUD)
-    TrainingProgramCreateView,
-    TrainingProgramUpdateView,
-    TrainingProgramDeleteView,
-    TrainingProgramDetailView,
-    # 3. Прохождение обучения (Training CRUD)
-    TrainingCreateView,
-    TrainingUpdateView,
-    TrainingDeleteView,
-    # 4. Инструктажи (SafetyTraining CRUD)
-    SafetyTrainingCreateView,
-    SafetyTrainingUpdateView,
-    SafetyTrainingDeleteView,
-)
+from .views import training_program_list, TrainingProgramCreateView, TrainingProgramUpdateView, \
+    TrainingProgramDeleteView, TrainingProgramDetailView, TrainingCreateView, TrainingUpdateView, \
+    TrainingDeleteView, SafetyTrainingCreateView, SafetyTrainingUpdateView, SafetyTrainingDeleteView
 
 app_name = 'trainings'
 

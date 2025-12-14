@@ -1,7 +1,6 @@
-from django.utils import timezone
-
 from dateutil.relativedelta import relativedelta
 from django.db import models
+from django.utils import timezone
 
 from documents.models import Document
 from employees.models import Employee
@@ -9,6 +8,45 @@ from .validators import validate_pdf_extension
 
 
 # Create your models here.
+class InstructionType(models.Model):
+    CATEGORY_CHOICES = (
+        ('SAFETY', 'Охрана труда'),
+        ('ELECTRICAL', 'Электробезопасность'),
+        ('FIRE', 'Пожарная безопасность'),
+        ('OTHER', 'Другое'),
+    )
+
+    name = models.CharField(
+        max_length=150,
+        unique=True,
+        verbose_name="Полное наименование типа инструктажа",
+        help_text="Например: 'Первичный по охране труда', 'Повторный по электробезопасности'"
+    )
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        verbose_name="Категория"
+    )
+    type_name = models.CharField(
+        max_length=50,
+        verbose_name="Тип (Вводный, Повторный и т.д.)",
+        help_text="Используется для подробного описания в отчетах."
+    )
+    frequency_months = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Периодичность повтора (в месяцах)",
+        help_text="0 - если повтор не требуется (Вводный, Внеплановый, Целевой).")
+
+    class Meta:
+        verbose_name = "Тип инструктажа"
+        verbose_name_plural = "Типы инструктажей"
+        unique_together = ('category', 'type_name')
+        ordering = ['category', 'type_name']
+
+    def __str__(self):
+        return self.name
+
+
 class TrainingProgram(models.Model):
     TRAINING_TYPES = (
         ('SAFETY', 'Охрана труда'),
@@ -81,44 +119,33 @@ class Training(models.Model):
     def __str__(self):
         return f"{self.program.name} - {self.employee}"
 
-class SafetyTraining(models.Model):
-    TRAINING_CATEGORIES = (
-        ('SAFETY', 'Охрана труда'),
-        ('ELECTRICAL', 'Электробезопасность'),
-        ('FIRE', 'Пожарная безопасность'),
+
+class Instruction(models.Model):
+    instruction_type = models.ForeignKey(
+        InstructionType,
+        on_delete=models.PROTECT,
+        related_name='instructions',
+        verbose_name="Тип инструктажа"
     )
 
-    TRAINING_TYPES = (
-        ('INTRO', 'Вводный'),
-        ('PRIMARY', 'Первичный'),
-        ('REPEAT', 'Повторный'),
-        ('UNSCHEDULED', 'Внеплановый'),
-        ('TARGETED', 'Целевой'),
-    )
-
-    category = models.CharField(
-        max_length=20,
-        choices=TRAINING_CATEGORIES,
-        verbose_name="Категория инструктажа",
-        default='SAFETY'
-    )
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
+        related_name='instructions',
         verbose_name="Работник")
-    training_type = models.CharField(
-        max_length=20,
-        choices=TRAINING_TYPES,
-        verbose_name="Тип инструктажа")
+
     training_date = models.DateField(
         verbose_name="Дата проведения")
+
     next_training_date = models.DateField(
         null=True,
         blank=True,
         verbose_name="Дата следующего инструктажа")
+
     instructor = models.CharField(
         max_length=200,
         verbose_name="Инструктор")
+
     local_act_details = models.CharField(
         max_length=255,
         blank=True,
@@ -135,22 +162,16 @@ class SafetyTraining(models.Model):
     )
 
     def calculate_next_training_date(self):
-        """Рассчитывает дату следующего инструктажа на основе категории и типа."""
-        # По умолчанию сбрасываем дату
-        next_date = None
+        """
+        Рассчитывает дату следующего инструктажа, используя
+        frequency_months из связанного InstructionType.
+        """
+        frequency = self.instruction_type.frequency_months
 
-        # Инструктаж по электробезопасности - 1 раз в год
-        if self.category == 'ELECTRICAL':
-            next_date = self.training_date + relativedelta(years=1)
+        if frequency > 0:
+            return self.training_date + relativedelta(months=frequency)
 
-        # Первичный/повторный по охране труда и пожарной безопасности - 1 раз в 6 месяцев
-        elif self.category in ['SAFETY', 'FIRE'] and self.training_type in ['PRIMARY', 'REPEAT']:
-            next_date = self.training_date + relativedelta(months=6)
-
-        # Для вводных, внеплановых, целевых - обычно бессрочно (None)
-        # Если нужна другая логика, добавьте ее сюда
-
-        return next_date
+        return None
 
     @property
     def is_overdue(self):
@@ -166,3 +187,7 @@ class SafetyTraining(models.Model):
     class Meta:
         verbose_name = "Инструктаж"
         verbose_name_plural = "Инструктажи"
+        ordering = ['-training_date']
+
+    def __str__(self):
+        return f"{self.instruction_type.name} - {self.employee}"
