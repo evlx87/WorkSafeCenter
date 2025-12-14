@@ -7,27 +7,45 @@
   <title>{% block title %}WorkSafeCenter{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
   <link rel="icon" href="{% static 'favicon.ico' %}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-<header>
-  <a href="{% url 'index' %}" class="header-logo">
-    <h1>WorkSafeCenter</h1>
-  </a>
-  <div class="button-container">
-    <a href="{% url 'employees:employee_list' %}">Список сотрудников</a>
-    <a href="{% url 'organization:organization_info' %}">Информация об организации</a>
-    <a href="{% url 'safety_trainings_list' %}">Инструктажи и обучение</a>
-    <a href="{% url 'programs:program_list' %}">Программы обучения</a>
-    <a href="{% url 'documents:documents_list' %}">Документы</a>
-    <a href="{% url 'medical_checks:medical_check_list' %}">Медосмотры</a>
-    <a href="{% url 'incidents:incident_list' %}">Несчастные случаи и микротравмы</a>
-    <a href="{% url 'reports:reports_index' %}">Отчеты</a>
-    <a href="{% url 'notifications:notification_list' %}">Уведомления</a>
+<header class="main-header">
+  <div class="header-container">
+    <a href="{% url 'index' %}" class="logo">
+      WorkSafeCenter
+    </a>
+    <nav class="main-nav">
+      <ul>
+        <li><a href="{% url 'employees:employee_list' %}">Сотрудники</a></li>
+        <li><a href="{% url 'organization:organization_info' %}">Организация</a></li>
+        <li><a href="{% url 'safety_trainings_list' %}">Обучение</a></li>
+        <li><a href="{% url 'documents:documents_list' %}">Документы</a></li>
+        <li><a href="{% url 'medical_checks:medical_check_list' %}">Медосмотры</a></li>
+        <li><a href="{% url 'incidents:incident_list' %}">Инциденты</a></li>
+        <li><a href="{% url 'reports:reports_index' %}">Отчеты</a></li>
+      </ul>
+    </nav>
+    <div class="user-actions">
+        <a href="{% url 'notifications:notification_list' %}" class="notification-link">🔔</a>
+    </div>
   </div>
 </header>
-<main>
+<main class="container">
+  {% if messages %}
+    <div class="messages">
+      {% for message in messages %}
+        <div class="alert {{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   {% block content %}
   {% endblock %}
 </main>
+
+<footer class="main-footer">
+    <p>&copy; {% now "Y" %} WorkSafeCenter. Система управления охраной труда.</p>
+</footer>
 </body>
 </html>

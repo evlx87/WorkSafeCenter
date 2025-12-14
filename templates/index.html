@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block title %}
-WorkSafeCenter - Главная
+WorkSafeCenter - Панель управления
 {% endblock %}
 
 {% block content %}
@@ -9,22 +9,25 @@ WorkSafeCenter - Главная
     <h2>Информационная панель</h2>
     <p>Ключевые показатели системы охраны труда на сегодня.</p>
 
-    <div style="display: flex; gap: 20px; margin-top: 20px;">
-        <div style="border: 1px solid #ccc; padding: 20px; border-radius: 5px; text-align: center; background-color: #f8d7da; color: #721c24;">
+    <div class="dashboard-grid">
+        <div class="stat-card card-danger">
             <h3>Просроченные медосмотры</h3>
-            <p style="font-size: 2em; margin: 0;">{{ overdue_checks_count }}</p>
+            <p class="count">{{ overdue_checks_count }}</p>
         </div>
-        <div style="border: 1px solid #ccc; padding: 20px; border-radius: 5px; text-align: center; background-color: #f8d7da; color: #721c24;">
+
+        <div class="stat-card card-danger">
             <h3>Просроченные инструктажи</h3>
-            <p style="font-size: 2em; margin: 0;">{{ overdue_trainings_count }}</p>
+            <p class="count">{{ overdue_trainings_count }}</p>
         </div>
-        <div style="border: 1px solid #ccc; padding: 20px; border-radius: 5px; text-align: center; background-color: #fff3cd; color: #856404;">
+
+        <div class="stat-card card-warning">
             <h3>Событий в ближайшие 30 дней</h3>
-            <p style="font-size: 2em; margin: 0;">{{ upcoming_events_count }}</p>
+            <p class="count">{{ upcoming_events_count }}</p>
         </div>
-        <div style="border: 1px solid #ccc; padding: 20px; border-radius: 5px; text-align: center; background-color: #d4edda; color: #155724;">
+
+        <div class="stat-card card-success">
             <h3>Инцидентов за 30 дней</h3>
-            <p style="font-size: 2em; margin: 0;">{{ recent_incidents_count }}</p>
+            <p class="count">{{ recent_incidents_count }}</p>
         </div>
     </div>
 </section>
