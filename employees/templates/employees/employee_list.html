@@ -1,78 +1,79 @@
 {% extends 'base.html' %}
-{% block title %}
-WorkSafeCenter - Список сотрудников
-{% endblock %}
+{% block title %}WorkSafeCenter - Сотрудники{% endblock %}
+
 {% block content %}
 <section>
-  <h2>Список сотрудников</h2>
-  <a href="{% url 'employees:employee_create' %}" class="button">Добавить сотрудника</a>
-  <br><br>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h2>Реестр сотрудников</h2>
+    <a href="{% url 'employees:employee_create' %}" class="button"> + Добавить сотрудника</a>
+  </div>
 
-  <form method="get" action="{% url 'employees:employee_list' %}" style="margin-bottom: 20px;">
-    <div style="display: flex; gap: 15px; align-items: center;">
+  <form method="get" action="{% url 'employees:employee_list' %}" class="filter-toolbar">
       <input
-              type="text"
-              name="search_query"
-              placeholder="Поиск по фамилии..."
-              value="{{ search_query }}"
+          type="text"
+          name="search_query"
+          placeholder="🔍 Поиск по фамилии..."
+          value="{{ search_query }}"
       >
       <select name="department">
-        <option value="">Все отделы</option>
+        <option value="">🏢 Все отделы</option>
         {% for dept in departments %}
-        <option
-                value="{{ dept.pk }}"
-                {% if dept.pk|stringformat:"s" == selected_department %}selected{% endif %}
-        >
-        {{ dept.name }}
+        <option value="{{ dept.pk }}" {% if dept.pk|stringformat:"s" == selected_department %}selected{% endif %}>
+          {{ dept.name }}
         </option>
         {% endfor %}
       </select>
-      <button type="submit">Найти</button>
-      <a href="{% url 'employees:employee_list' %}">Сбросить</a>
-    </div>
+
+      <button type="submit">Применить</button>
+      <a href="{% url 'employees:employee_list' %}" style="color: #666; margin-left: 10px; font-size: 0.9em;">Сбросить</a>
   </form>
+
   {% if employees %}
-  <table border="1" cellpadding="5" cellspacing="0" width="100%">
+  <table>
     <thead>
     <tr>
       <th>ФИО</th>
-      <th>Должность</th>
-      <th>Отдел</th>
+      <th>Должность / Отдел</th>
       <th>Статус</th>
       <th>Действия</th>
     </tr>
     </thead>
     <tbody>
     {% for employee in employees %}
-    <tr>
+    <tr {% if employee.termination_date %}style="background-color: #fff5f5;"{% endif %}>
       <td>
-        <a href="{% url 'employees:employee_detail' employee.pk %}">{{ employee.last_name }} {{ employee.first_name }} {{ employee.middle_name }}</a>
+        <a href="{% url 'employees:employee_detail' employee.pk %}" style="font-weight: bold; color: var(--primary-color);">
+            {{ employee.last_name }} {{ employee.first_name }} {{ employee.middle_name }}
+        </a>
         {% if employee.is_safety_committee_member %}
-        <span style="color: #007bff; font-weight: bold; font-size: 0.9em;"> (Комиссия)</span>
+        <br><span style="font-size: 0.8em; color: #d35400;">★ Комиссия по ОТ</span>
         {% endif %}
       </td>
-      <td>{{ employee.position }}</td>
-      <td>{{ employee.department|default:"-" }}</td>
+      <td>
+          <div>{{ employee.position }}</div>
+          <div style="font-size: 0.85em; color: #666;">{{ employee.department|default:"-" }}</div>
+      </td>
 
       <td>
         {% if employee.termination_date %}
-        <span style="color: red;">Уволен {{ employee.termination_date|date:"d.m.Y" }}</span>
+            <span class="badge badge-danger">Уволен</span>
         {% elif employee.on_parental_leave %}
-        <span style="color: blue;">В декрете</span>
+            <span class="badge badge-info">В декрете</span>
         {% else %}
-        <span style="color: green;">Активен</span>
+            <span class="badge badge-success">Активен</span>
         {% endif %}
       </td>
       <td>
-        <a href="{% url 'employees:employee_update' employee.pk %}">Редактировать</a> |
-        <a href="{% url 'employees:employee_delete' employee.pk %}">Удалить</a>
+        <a href="{% url 'employees:employee_update' employee.pk %}">Ред.</a>
       </td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <p>Сотрудники не найдены.</p>
+  <div style="text-align: center; padding: 40px; color: #777;">
+      <p>Сотрудники не найдены. Попробуйте изменить параметры поиска.</p>
+  </div>
   {% endif %}
 </section>
 {% endblock %}
