@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block title %}WorkSafeCenter - Обучение и инструктажи{% endblock %}
+
+{% block content %}
+<section style="background: transparent; box-shadow: none; padding: 0;">
+
+    <div class="section-header" style="border-bottom: none; margin-bottom: 20px;">
+        <h2>📚 Программы обучения и инструктажи</h2>
+        <a href="{% url 'safety_trainings_create_program' %}" class="button"> + Создать программу</a>
+    </div>
+
+    <div class="summary-grid">
+        <div class="summary-card summary-primary">
+            <h4>Всего программ в реестре</h4>
+            <p class="value">{{ total_programs_count|default:"-" }}</p>
+        </div>
+        <div class="summary-card summary-accent">
+            <h4>Сотрудников в базе</h4>
+            <p class="value">{{ total_employees_count|default:"-" }}</p>
+        </div>
+        <div class="summary-card summary-danger">
+            <h4>Сотрудников с просрочками</h4>
+            <p class="value">{{ overdue_employees_count|default:"-" }}</p>
+        </div>
+    </div>
+</section>
+
+<section>
+    <h3 style="margin-top: 0;">Реестр учебных программ</h3>
+
+    <form method="get" action="{% url 'safety_trainings_list' %}" class="filter-toolbar">
+        <input
+            type="text"
+            name="search_query"
+            placeholder="🔍 Поиск по названию программы..."
+            value="{{ search_query }}"
+        >
+        <select name="training_type">
+            <option value="">Все типы</option>
+            {% for value, label in type_choices %}
+            <option value="{{ value }}" {% if value|stringformat:"s" == selected_type %}selected{% endif %}>
+                {{ label }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Применить</button>
+        <a href="{% url 'safety_trainings_list' %}" style="color: #666; margin-left: 10px; font-size: 0.9em;">Сбросить</a>
+    </form>
+
+    {% if programs %}
+    <table>
+        <thead>
+        <tr>
+            <th>Программа</th>
+            <th>Тип / Категория</th>
+            <th>Периодичность</th>
+            <th>Часы</th>
+            <th style="width: 150px;">Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for program in programs %}
+        <tr>
+            <td>
+                <a href="{% url 'safety_trainings_detail' program.pk %}" style="font-weight: bold; color: var(--primary-color);">
+                    {{ program.name }}
+                </a>
+                {% if program.is_mandatory %}
+                    <span class="badge badge-primary" style="background-color: #3498db; color: white; margin-left: 10px;">Обязательно</span>
+                {% endif %}
+            </td>
+            <td>
+                {{ program.get_training_type_display }}
+                <div style="font-size: 0.85em; color: #666; margin-top: 3px;">
+                    Категория: {{ program.get_category_display|default:"Общая" }}
+                </div>
+            </td>
+            <td>
+                {% if program.frequency_months > 0 %}
+                    Раз в {{ program.frequency_months }} мес.
+                {% else %}
+                    Бессрочно
+                {% endif %}
+            </td>
+            <td>{{ program.hours }} ч.</td>
+            <td>
+                <a href="{% url 'safety_trainings_update_program' program.pk %}" title="Редактировать">✏️</a>
+                <a href="{% url 'safety_trainings_journal' program.pk %}" title="Журнал" style="margin-left: 10px; color: var(--accent-color);">📋</a>
+                <a href="{% url 'safety_trainings_delete_program' program.pk %}" title="Удалить" style="color: var(--danger-color); margin-left: 10px;">🗑️</a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; padding: 30px; color: #777;">В реестре нет программ обучения.</p>
+    {% endif %}
+</section>
+
+<section>
+    <div class="section-header">
+        <h3>Журнал проведенных инструктажей</h3>
+        <a href="{% url 'safety_trainings_all_journal' %}" class="button" style="background-color: #7f8c8d;">Посмотреть весь журнал</a>
+    </div>
+    <p style="color: #666;">Здесь можно увидеть и отфильтровать все проведенные инструктажи и обучения, независимо от программы.</p>
+</section>
+{% endblock %}

@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from incidents.models import Incident
 from medical_checks.models import MedicalCheck
-from safety_trainings.models import SafetyTraining
+from trainings.models import SafetyTraining
 
 
 def index(request):
