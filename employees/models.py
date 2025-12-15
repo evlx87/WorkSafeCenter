@@ -73,6 +73,17 @@ class Employee(models.Model):
         blank=True,
         verbose_name="Номер приказа об увольнении"
     )
+    is_pedagogical_staff = models.BooleanField(
+        default=False,
+        verbose_name="Педагогический работник",
+        help_text="Требуется для назначения обучения по Первой помощи."
+    )
+
+    exempt_from_safety_instruction = models.BooleanField(
+        default=False,
+        verbose_name="Освобожден от первичного инструктажа",
+        help_text="Если отмечено, сотруднику требуется только Вводный инструктаж."
+    )
 
     def save(self, *args, **kwargs):
         # Автоматически делаем сотрудника неактивным, если указана дата увольнения
