@@ -1,10 +1,74 @@
 {% extends 'base.html' %}
-{% block title %}Информация по охране труда{% endblock %}
+{% block title %}Настройка данных организации по ОТ{% endblock %}
+
 {% block content %}
-<h2>Заполнение информации по охране труда</h2>
-<form method="post" enctype="multipart/form-data">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Сохранить</button>
-</form>
+<section>
+    <h2>⚙️ Настройка данных организации</h2>
+    <p style="color: #666;">Введите данные, необходимые для учета по охране труда и формирования документов.</p>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+
+            <h3 class="form-full-width">Общие реквизиты</h3>
+            <div class="form-item form-full-width">
+                <label for="{{ form.name_full.id_for_label }}">{{ form.name_full.label }}:</label>
+                {{ form.name_full }}
+            </div>
+
+            <div class="form-item">
+                <label for="{{ form.inn.id_for_label }}">{{ form.inn.label }}:</label>
+                {{ form.inn }}
+            </div>
+            <div class="form-item">
+                <label for="{{ form.ogrn.id_for_label }}">{{ form.ogrn.label }}:</label>
+                {{ form.ogrn }}
+            </div>
+
+            <div class="form-item form-full-width">
+                <label for="{{ form.address_legal.id_for_label }}">{{ form.address_legal.label }}:</label>
+                {{ form.address_legal }}
+            </div>
+            <div class="form-item">
+                <label for="{{ form.contact_phone.id_for_label }}">{{ form.contact_phone.label }}:</label>
+                {{ form.contact_phone }}
+            </div>
+
+            <hr class="form-full-width">
+
+            <h3 class="form-full-width">Ответственные лица (выбираются из Сотрудников)</h3>
+
+            <div class="form-item">
+                <label for="{{ form.director.id_for_label }}">{{ form.director.label }}:</label>
+                {{ form.director }}
+                <small class="help-text">Выберите ФИО руководителя из списка сотрудников.</small>
+            </div>
+            <div class="form-item">
+                <label for="{{ form.director_position.id_for_label }}">{{ form.director_position.label }}:</label>
+                {{ form.director_position }}
+            </div>
+            <div class="form-item form-full-width">
+                <label for="{{ form.safety_specialist.id_for_label }}">{{ form.safety_specialist.label }}:</label>
+                {{ form.safety_specialist }}
+            </div>
+
+            <div class="form-item form-full-width">
+                <label for="{{ form.safety_committee_members.id_for_label }}">{{ form.safety_committee_members.label }}:</label>
+                {{ form.safety_committee_members }}
+                <small class="help-text">Удерживайте Ctrl (или Cmd) для выбора нескольких сотрудников.</small>
+            </div>
+
+        </div>
+
+        {% for error in form.non_field_errors %}
+            <p class="error form-full-width">{{ error }}</p>
+        {% endfor %}
+
+
+        <div style="margin-top: 30px;">
+            <button type="submit" class="button">Сохранить настройки</button>
+        </div>
+    </form>
+</section>
 {% endblock %}

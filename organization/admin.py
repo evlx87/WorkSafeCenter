@@ -19,4 +19,11 @@ class PositionAdmin(admin.ModelAdmin):
 
 @admin.register(OrganizationSafetyInfo)
 class OrganizationSafetyInfoAdmin(admin.ModelAdmin):
-    list_display = ('school_name', 'director_name', 'ot_specialist_name')
+    list_display = ('name_full', 'director', 'safety_specialist')
+
+    fields = (
+        ('name_full', 'inn', 'ogrn'),
+        ('address_legal', 'contact_phone'),
+        ('director', 'director_position', 'safety_specialist'),
+        'safety_committee_members',
+    )

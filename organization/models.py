@@ -61,22 +61,76 @@ class Position(models.Model):
 
 
 class OrganizationSafetyInfo(models.Model):
-    school_name = models.CharField(
-        max_length=200,
-        verbose_name="Название школы")
-    director_name = models.CharField(
-        max_length=200,
-        verbose_name="ФИО директора")
-    ot_specialist_name = models.CharField(
-        max_length=200,
-        verbose_name="ФИО специалиста по охране труда")
+    name_full = models.CharField(
+        max_length=255,
+        verbose_name="Полное наименование организации (по Уставу)"
+    )
+    inn = models.CharField(
+        max_length=12,
+        verbose_name="ИНН",
+        unique=True,
+        blank=True
+    )
+    ogrn = models.CharField(
+        max_length=15,
+        verbose_name="ОГРН",
+        unique=True,
+        blank=True
+    )
+    address_legal = models.CharField(
+        max_length=255,
+        verbose_name="Юридический адрес",
+        blank=True
+    )
+    director = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='directed_organization',
+        verbose_name="Руководитель (ФИО)"
+    )
+    director_position = models.CharField(
+        max_length=100,
+        default="Директор",
+        verbose_name="Должность руководителя (напр., И.О. Директора)"
+    )
+    safety_specialist = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='safety_specialist_for',
+        verbose_name="Специалист по охране труда (ФИО)"
+    )
+    safety_committee_members = models.ManyToManyField(
+        'employees.Employee',
+        related_name='safety_committee_membership',
+        verbose_name="Состав комиссии по охране труда",
+        blank=True
+    )
+    contact_phone = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        verbose_name="Контактный телефон"
+    )
 
     class Meta:
-        verbose_name = "Информация по охране труда организации"
-        verbose_name_plural = "Информация по охране труда организаций"
+        verbose_name = "Информация по ОТ организации"
+        verbose_name_plural = "Информация по ОТ организаций"
 
     def __str__(self):
-        return self.school_name
+        return self.name_full
+
+    @classmethod
+    def load_organization(cls):
+        """Получает или создает единственную запись организации (для синглтона)."""
+        obj, created = cls.objects.get_or_create(
+            pk=1,
+            defaults={'name_full': 'Название организации'}
+        )
+        return obj
 
 
 class Site(models.Model):

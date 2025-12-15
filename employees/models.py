@@ -1,7 +1,5 @@
 from django.db import models
 
-from organization.models import Department, Position
-
 
 # Create your models here.
 class Employee(models.Model):
@@ -16,12 +14,12 @@ class Employee(models.Model):
         blank=True,
         verbose_name="Отчество")
     position = models.ForeignKey(
-        Position,
+        'organization.Position',
         on_delete=models.SET_NULL,
         null=True,
         verbose_name="Должность")
     department = models.ForeignKey(
-        Department,
+        'organization.Department',
         on_delete=models.SET_NULL,
         null=True,
         verbose_name="Отдел")
