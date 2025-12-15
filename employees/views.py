@@ -48,7 +48,7 @@ class EmployeeDetailView(DetailView):
         compliance_status = check_employee_compliance(self.object)
 
         context['compliance'] = compliance_status
-        # Просто флаг, есть ли проблемы
+        # Просто флаг, есть ли проблемы, для отображения блока предупреждения
         context['has_compliance_issues'] = any([
             compliance_status['missing_programs'],
             compliance_status['missing_instructions'],
@@ -57,6 +57,7 @@ class EmployeeDetailView(DetailView):
         ])
 
         return context
+
 
 class EmployeeCreateView(CreateView):
     model = Employee
