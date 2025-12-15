@@ -116,6 +116,63 @@ class OrganizationSafetyInfo(models.Model):
         verbose_name="Контактный телефон"
     )
 
+    def get_effective_director(self):
+        """
+        Возвращает назначенного директора. Если его нет, ищет И.о. директора.
+        """
+        # 1. Если директор явно назначен в этой модели
+        if self.director:
+            return self.director
+
+        # 2. Ищем сотрудника со статусом "И.о. директора"
+        from employees.models import Employee  # Локальный импорт для избежания цикла
+
+        acting_director = Employee.objects.filter(
+            is_acting_director=True,
+            is_active=True  # Важно: только активные
+        ).first()
+
+        return acting_director
+
+    def get_effective_safety_specialist(self):
+        """
+        Возвращает назначенного специалиста по ОТ. Если его нет, ищет по статусу.
+        """
+        if self.safety_specialist:
+            return self.safety_specialist
+
+        from employees.models import Employee
+
+        specialist = Employee.objects.filter(
+            is_safety_specialist=True,
+            is_active=True
+        ).first()
+
+        return specialist
+
+    def get_committee_members_including_chair(self):
+        """
+        Возвращает всех членов комиссии, включая председателя, из M2M и по статусу.
+        """
+        from employees.models import Employee
+
+        # 1. Получаем членов, назначенных через M2M поле (если есть)
+        members = list(self.safety_committee_members.filter(is_active=True))
+
+        # 2. Ищем членов по статусам, если M2M поле пусто (или для дополнения)
+        if not members:
+            # Ищем всех, кто является членом или председателем
+            committee_members_by_status = Employee.objects.filter(
+                is_active=True
+            ).filter(
+                models.Q(is_safety_committee_member=True) |
+                models.Q(is_safety_committee_chair=True)
+            ).order_by('is_safety_committee_chair', 'last_name')
+
+            return list(committee_members_by_status)
+
+        return members
+
     class Meta:
         verbose_name = "Информация по ОТ организации"
         verbose_name_plural = "Информация по ОТ организаций"
