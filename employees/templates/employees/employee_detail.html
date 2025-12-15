@@ -80,6 +80,43 @@
   </div>
 </section>
 
+{% if has_compliance_issues %}
+<section style="border-left: 5px solid var(--danger-color); background-color: #fff5f5;">
+    <h3>⚠️ Требуется внимание (Недостающее обучение)</h3>
+
+    {% if compliance.missing_programs %}
+    <p><strong>Не пройдено обязательное обучение:</strong></p>
+    <ul>
+        {% for prog in compliance.missing_programs %}
+            <li>{{ prog.name }} <a href="{% url 'trainings:training_create' employee.pk %}?program={{ prog.id }}">[Добавить]</a></li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if compliance.expired_programs %}
+    <p><strong>Истек срок действия обучения:</strong></p>
+    <ul>
+        {% for prog in compliance.expired_programs %}
+            <li style="color: var(--danger-color);">{{ prog.name }} (Срок истек) <a href="{% url 'trainings:training_create' employee.pk %}?program={{ prog.id }}">[Обновить]</a></li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if compliance.missing_instructions or compliance.expired_instructions %}
+    <p><strong>Проблемы с инструктажами:</strong></p>
+    <ul>
+        {% for instr in compliance.missing_instructions %}
+            <li>Не проведен: {{ instr.name }}</li>
+        {% endfor %}
+        {% for instr in compliance.expired_instructions %}
+            <li style="color: var(--danger-color);">Просрочен: {{ instr.name }}</li>
+        {% endfor %}
+    </ul>
+    <a href="{% url 'trainings:safety_training_create' employee.pk %}" class="button" style="font-size: 0.8em;">Провести инструктаж</a>
+    {% endif %}
+</section>
+{% endif %}
+
 <section>
   <div class="section-header">
       <h3>Профессиональное обучение</h3>
@@ -135,11 +172,10 @@
 <section>
   <div class="section-header">
       <h3>Инструктажи по охране труда</h3>
-      <a href="{% url 'safety_trainings:safety_training_create' employee.pk %}" class="button">Добавить инструктаж</a>
+      <a href="{% url 'trainings:safety_training_create' employee.pk %}" class="button">Добавить инструктаж</a>
   </div>
 
-  {% if employee.safetytraining_set.all %}
-  <table>
+  {% if employee.instructions.all %}  <table>
     <thead>
     <tr>
       <th>Тип / Категория</th>
@@ -150,11 +186,10 @@
     </tr>
     </thead>
     <tbody>
-    {% for st in employee.safetytraining_set.all %}
-    <tr>
+    {% for st in employee.instructions.all %} <tr>
       <td>
-          <strong>{{ st.get_training_type_display }}</strong><br>
-          <small>{{ st.get_category_display }}</small>
+          <strong>{{ st.instruction_type.name }}</strong><br>
+          <small>{{ st.instruction_type.get_category_display }}</small>
       </td>
       <td>{{ st.training_date|date:"d.m.Y" }}</td>
       <td>
@@ -166,8 +201,8 @@
       </td>
       <td>{{ st.instructor }}</td>
       <td>
-        <a href="{% url 'safety_trainings:safety_training_update' employee.pk st.pk %}" style="margin-right: 10px;">✏️</a>
-        <a href="{% url 'safety_trainings:safety_training_delete' employee.pk st.pk %}" style="color: var(--danger-color);">🗑️</a>
+        <a href="{% url 'trainings:safety_training_update' employee.pk st.pk %}" style="margin-right: 10px;">✏️</a>
+        <a href="{% url 'trainings:safety_training_delete' employee.pk st.pk %}" style="color: var(--danger-color);">🗑️</a>
       </td>
     </tr>
     {% endfor %}

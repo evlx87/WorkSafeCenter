@@ -50,7 +50,7 @@ def training_program_list(request):
     return render(request, 'trainings/training_program_list.html', context)
 
 
-class SafetyTrainingCreateView(CreateView):
+class InstructionCreateView(CreateView):
     model = Instruction
     form_class = InstructionForm
     template_name = 'trainings/safety_training_form.html'
@@ -71,7 +71,7 @@ class SafetyTrainingCreateView(CreateView):
             'pk': self.kwargs['employee_pk']})
 
 
-class SafetyTrainingUpdateView(UpdateView):
+class InstructionUpdateView(UpdateView):
     model = Instruction
     form_class = InstructionForm
     template_name = 'trainings/safety_training_form.html'
@@ -86,7 +86,7 @@ class SafetyTrainingUpdateView(UpdateView):
             'pk': self.object.employee.pk})
 
 
-class SafetyTrainingDeleteView(DeleteView):
+class InstructionDeleteView(DeleteView):
     model = Instruction
     template_name = 'trainings/safety_training_confirm_delete.html'
 

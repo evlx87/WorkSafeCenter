@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import training_program_list, TrainingProgramCreateView, TrainingProgramUpdateView, \
     TrainingProgramDeleteView, TrainingProgramDetailView, TrainingCreateView, TrainingUpdateView, \
-    TrainingDeleteView, SafetyTrainingCreateView, SafetyTrainingUpdateView, SafetyTrainingDeleteView
+    TrainingDeleteView, InstructionCreateView, InstructionUpdateView, InstructionDeleteView
 
 app_name = 'trainings'
 
@@ -24,7 +24,7 @@ urlpatterns = [
 
     # 4. CRUD ДЛЯ ЗАПИСЕЙ О ПРОВЕДЕНИИ ИНСТРУКТАЖЕЙ (SafetyTraining CRUD)
     # Используем employee_pk для привязки к сотруднику
-    path('employee/<int:employee_pk>/safety/add/', SafetyTrainingCreateView.as_view(), name='safety_training_create'),
-    path('employee/<int:employee_pk>/safety/<int:pk>/update/', SafetyTrainingUpdateView.as_view(), name='safety_training_update'),
-    path('employee/<int:employee_pk>/safety/<int:pk>/delete/', SafetyTrainingDeleteView.as_view(), name='safety_training_delete'),
+    path('employee/<int:employee_pk>/instruction/add/', InstructionCreateView.as_view(), name='safety_training_create'),
+    path('employee/<int:employee_pk>/instruction/<int:pk>/update/', InstructionUpdateView.as_view(), name='safety_training_update'),
+    path('employee/<int:employee_pk>/instruction/<int:pk>/delete/', InstructionDeleteView.as_view(), name='safety_training_delete'),
 ]

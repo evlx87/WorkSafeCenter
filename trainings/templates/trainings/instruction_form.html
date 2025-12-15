@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}
+    {% if object %}Редактирование инструктажа для {{ employee.full_name }}{% else %}Добавление инструктажа для {{ employee.full_name }}{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<section>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>
+            {% if object %}✏️ Редактирование{% else %}➕ Добавление{% endif %}
+            инструктажа
+        </h2>
+        <a href="{% url 'employees:employee_detail' employee.pk %}" class="button" style="background-color: #95a5a6;">Назад к карточке</a>
+    </div>
+
+    <p style="color: #666; margin-bottom: 20px;">
+        Сотрудник: <strong>{{ employee.last_name }} {{ employee.first_name }} {{ employee.middle_name }}</strong>, Должность: {{ employee.position }}
+    </p>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-grid">
+            
+            <div class="form-item">
+                <label for="{{ form.instruction_type.id_for_label }}">Вид инструктажа:</label>
+                {{ form.instruction_type }}
+                {% if form.instruction_type.errors %}<div class="error">{{ form.instruction_type.errors }}</div>{% endif %}
+            </div>
+
+            <div class="form-item">
+                <label for="{{ form.training_date.id_for_label }}">Дата проведения:</label>
+                {{ form.training_date }}
+                {% if form.training_date.errors %}<div class="error">{{ form.training_date.errors }}</div>{% endif %}
+            </div>
+            
+            <div class="form-item">
+                <label for="{{ form.instructor.id_for_label }}">Инструктор / Ответственный:</label>
+                {{ form.instructor }}
+                {% if form.instructor.errors %}<div class="error">{{ form.instructor.errors }}</div>{% endif %}
+            </div>
+
+            <div class="form-item form-full-width">
+                <label for="{{ form.document_scan.id_for_label }}">Скан документа (Журнал, протокол):</label>
+                {{ form.document_scan }}
+                {% if form.document_scan.errors %}<div class="error">{{ form.document_scan.errors }}</div>{% endif %}
+                {% if form.instance.document_scan %}<p class="current-file">Текущий файл: <a href="{{ form.instance.document_scan.url }}" target="_blank">Просмотр</a></p>{% endif %}
+            </div>
+            
+            <div class="form-item form-full-width">
+                <label for="{{ form.notes.id_for_label }}">Заметки (необязательно):</label>
+                {{ form.notes }}
+                {% if form.notes.errors %}<div class="error">{{ form.notes.errors }}</div>{% endif %}
+            </div>
+
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button type="submit" class="button">Сохранить</button>
+        </div>
+    </form>
+</section>
+
+{% endblock %}
