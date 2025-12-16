@@ -71,6 +71,12 @@ class OrganizationSafetyInfo(models.Model):
         unique=True,
         blank=True
     )
+    kpp = models.CharField(
+        max_length=9,
+        verbose_name="КПП",
+        blank=True,
+        default=""
+    )
     ogrn = models.CharField(
         max_length=15,
         verbose_name="ОГРН",
