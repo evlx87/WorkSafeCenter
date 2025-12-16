@@ -8,13 +8,19 @@ from .models import Department, Position, OrganizationSafetyInfo, Site
 
 # Create your views here.
 def organization_info(request):
-    departments = Department.objects.all()
-    positions = Position.objects.all()
+    # Оптимизированная загрузка: загружаем все отделы, и с ними предварительно
+    # связанные должности (position_set - стандартное обратное имя).
+    departments = Department.objects.all().order_by('name').prefetch_related('position_set')
+
+    # Теперь 'positions' не нужна, так как должности доступны через departments.
+    # positions = Position.objects.all()
+
     safety_info = OrganizationSafetyInfo.objects.first()
     sites = Site.objects.all() if safety_info else []
+
     return render(request, 'organization/organization_info.html', {
         'departments': departments,
-        'positions': positions,
+        # 'positions': positions, # Должности теперь в departments
         'safety_info': safety_info,
         'sites': sites
     })
@@ -44,6 +50,14 @@ class PositionCreateView(CreateView):
     form_class = PositionForm
     template_name = 'organization/position_form.html'
     success_url = reverse_lazy('organization:organization_info')
+
+    def get_initial(self):
+        """Автоматически заполняет department, если передан в GET-параметрах."""
+        initial = super().get_initial()
+        department_pk = self.request.GET.get('department')
+        if department_pk:
+            initial['department'] = department_pk
+        return initial
 
 
 class PositionUpdateView(UpdateView):
