@@ -1,23 +1,45 @@
 {% extends 'base.html' %}
-{% block title %}
-WorkSafeCenter - Отчеты
-{% endblock %}
+{% block title %}WorkSafeCenter - Отчеты и аналитика{% endblock %}
+
 {% block content %}
 <section>
-  <h2>Доступные отчеты</h2>
-  <ul style="list-style-type: none; padding: 0;">
-    <li style="margin-bottom: 10px;">
-      <a href="{% url 'reports:overdue_trainings_report' %}" class="button">Просроченные инструктажи</a>
-      <p style="color: #666; font-size: 0.9em;">Список сотрудников, у которых приближается срок очередного инструктажа (в ближайшие 30 дней).</p>
-    </li>
-    <li style="margin-bottom: 10px;">
-      <a href="{% url 'reports:overdue_medical_checks_report' %}" class="button">Просроченные медосмотры</a>
-      <p style="color: #666; font-size: 0.9em;">Список сотрудников, у которых приближается срок очередного медосмотра (в ближайшие 30 дней).</p>
-    </li>
-    <li style="margin-bottom: 10px;">
-      <a href="{% url 'reports:incident_statistics_report' %}" class="button">Статистика по инцидентам</a>
-      <p style="color: #666; font-size: 0.9em;">Общее количество зарегистрированных несчастных случаев и микротравм.</p>
-    </li>
-  </ul>
+    <h2>📊 Центр отчетов и аналитики</h2>
+    <p>Выберите интересующий тип отчета для получения сводной информации и экспорта данных.</p>
+
+    <div class="dashboard-grid">
+
+        <div class="stat-card" style="border-left-color: var(--accent-color);">
+            <h3>Отчет по обучению и инструктажам</h3>
+            <p style="color: #666;">Анализ просрочек, ближайших сроков и покрытия сотрудников обучением.</p>
+            <a href="{% url 'reports:overdue_trainings_report' %}" class="button" style="background-color: var(--accent-color);">
+                Сформировать отчет
+            </a>
+        </div>
+
+        <div class="stat-card" style="border-left-color: var(--warning-color);">
+            <h3>Отчет по медосмотрам</h3>
+            <p style="color: #666;">Состояние годности, список на прохождение в следующем квартале.</p>
+            <a href="{% url 'reports:overdue_medical_checks_report' %}" class="button" style="background-color: var(--warning-color);">
+                Сформировать отчет
+            </a>
+        </div>
+
+        <div class="stat-card card-danger">
+            <h3>Статистика по инцидентам</h3>
+            <p style="color: #666;">Частота, тяжесть, анализ мест происшествий за период.</p>
+            <a href="{% url 'reports:incident_statistics_report' %}" class="button" style="background-color: var(--danger-color);">
+                Сформировать отчет
+            </a>
+        </div>
+
+        <div class="stat-card" style="border-left-color: var(--success-color);">
+            <h3>Сводный реестр сотрудников</h3>
+            <p style="color: #666;">Полный список сотрудников с ключевыми данными для выгрузки.</p>
+            <a href="#" class="button" style="background-color: var(--success-color);">
+                Сформировать отчет
+            </a>
+        </div>
+
+    </div>
 </section>
 {% endblock %}

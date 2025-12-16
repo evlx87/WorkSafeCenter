@@ -1,40 +1,90 @@
 {% extends 'base.html' %}
-{% block title %}
-WorkSafeCenter - Инциденты
-{% endblock %}
+{% block title %}WorkSafeCenter - Журнал инцидентов{% endblock %}
+
 {% block content %}
 <section>
-  <h2>Список инцидентов</h2>
-  <a href="{% url 'incidents:incident_create' %}" class="button">Зарегистрировать инцидент</a>
-  <br><br>
-  {% if incidents %}
-  <table border="1" cellpadding="5" cellspacing="0" width="100%">
-    <thead>
-      <tr>
-        <th>Сотрудник</th>
-        <th>Тип инцидента</th>
-        <th>Дата и время</th>
-        <th>Описание</th>
-        <th>Действия</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for incident in incidents %}
-      <tr>
-        <td>{{ incident.employee }}</td>
-        <td>{{ incident.get_incident_type_display }}</td>
-        <td>{{ incident.incident_date|date:"d.m.Y H:i" }}</td>
-        <td>{{ incident.description|truncatewords:20 }}</td>
-        <td>
-          <a href="{% url 'incidents:incident_update' incident.pk %}">Редактировать</a> |
-          <a href="{% url 'incidents:incident_delete' incident.pk %}">Удалить</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p>Инциденты не найдены.</p>
-  {% endif %}
+    <div class="section-header">
+        <h2>🚨 Журнал происшествий и инцидентов</h2>
+        <a href="{% url 'incidents:incident_create' %}" class="button" style="background-color: var(--danger-color);"> + Зарегистрировать инцидент</a>
+    </div>
+
+    <form method="get" action="{% url 'incidents:incident_list' %}" class="filter-toolbar">
+        <input
+            type="text"
+            name="search_query"
+            placeholder="🔍 Поиск по названию или сотруднику..."
+            value="{{ search_query }}"
+        >
+        <select name="severity">
+            <option value="">Все категории тяжести</option>
+            {% for value, label in severity_choices %}
+            <option value="{{ value }}" {% if value|stringformat:"s" == selected_severity %}selected{% endif %}>
+                {{ label }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Применить</button>
+        <a href="{% url 'incidents:incident_list' %}" style="color: #666; margin-left: 10px; font-size: 0.9em;">Сбросить</a>
+    </form>
+
+    {% if incidents %}
+    <table>
+        <thead>
+        <tr>
+            <th>Дата и место</th>
+            <th>Краткое описание</th>
+            <th>Тяжесть</th>
+            <th>Пострадавший (Сотрудник)</th>
+            <th style="width: 80px;">Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for incident in incidents %}
+        <tr
+            {% if incident.severity == 'critical' %}style="background-color: #fcebeb;"
+            {% elif incident.severity == 'major' %}style="background-color: #fffaf0;"
+            {% endif %}>
+            <td>
+                <strong>{{ incident.incident_date|date:"d.m.Y H:i" }}</strong>
+                <div style="font-size: 0.85em; color: #666; margin-top: 3px;">
+                    {{ incident.location|default:"Не указано" }}
+                </div>
+            </td>
+            <td>
+                <a href="{% url 'incidents:incident_detail' incident.pk %}" style="color: var(--primary-color);">
+                    {{ incident.title|truncatechars:70 }}
+                </a>
+            </td>
+            <td>
+                {% if incident.severity == 'critical' %}
+                    <span class="badge" style="background-color: #c0392b; color: white;">Критический</span>
+                {% elif incident.severity == 'major' %}
+                    <span class="badge badge-warning">Серьезный</span>
+                {% elif incident.severity == 'minor' %}
+                    <span class="badge badge-info">Незначительный</span>
+                {% else %}
+                    <span class="badge badge-success">Низкий риск</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if incident.employee %}
+                    <a href="{% url 'employees:employee_detail' incident.employee.pk %}">
+                        {{ incident.employee.last_name }} {{ incident.employee.first_name }}
+                    </a>
+                {% else %}
+                    <span style="color: #999;">Гость / Другое</span>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{% url 'incidents:incident_update' incident.pk %}" title="Редактировать">✏️</a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; padding: 30px; color: #777;">Инциденты не зарегистрированы.</p>
+    {% endif %}
 </section>
 {% endblock %}

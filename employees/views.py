@@ -2,6 +2,7 @@ from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 
 from organization.models import Department
+from trainings.services import check_employee_compliance
 from .forms import EmployeeForm
 from .models import Employee
 
@@ -39,6 +40,23 @@ class EmployeeDetailView(DetailView):
     model = Employee
     template_name = 'employees/employee_detail.html'
     context_object_name = 'employee'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Получаем статус соблюдения требований
+        compliance_status = check_employee_compliance(self.object)
+
+        context['compliance'] = compliance_status
+        # Просто флаг, есть ли проблемы, для отображения блока предупреждения
+        context['has_compliance_issues'] = any([
+            compliance_status['missing_programs'],
+            compliance_status['missing_instructions'],
+            compliance_status['expired_programs'],
+            compliance_status['expired_instructions']
+        ])
+
+        return context
 
 
 class EmployeeCreateView(CreateView):

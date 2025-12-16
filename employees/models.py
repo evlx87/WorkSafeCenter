@@ -1,7 +1,5 @@
 from django.db import models
 
-from organization.models import Department, Position
-
 
 # Create your models here.
 class Employee(models.Model):
@@ -16,12 +14,12 @@ class Employee(models.Model):
         blank=True,
         verbose_name="Отчество")
     position = models.ForeignKey(
-        Position,
+        'organization.Position',
         on_delete=models.SET_NULL,
         null=True,
         verbose_name="Должность")
     department = models.ForeignKey(
-        Department,
+        'organization.Department',
         on_delete=models.SET_NULL,
         null=True,
         verbose_name="Отдел")
@@ -59,9 +57,21 @@ class Employee(models.Model):
         default=False,
         verbose_name="В декретном отпуске"
     )
+    is_safety_specialist = models.BooleanField(
+        default=False,
+        verbose_name="Специалист по охране труда"
+    )
     is_safety_committee_member = models.BooleanField(
         default=False,
         verbose_name="Член комиссии по охране труда"
+    )
+    is_safety_committee_chair = models.BooleanField(
+        default=False,
+        verbose_name="Председатель комиссии по охране труда"
+    )
+    is_acting_director = models.BooleanField(
+        default=False,
+        verbose_name="И.о. директора"
     )
     termination_date = models.DateField(
         null=True,
@@ -73,13 +83,21 @@ class Employee(models.Model):
         blank=True,
         verbose_name="Номер приказа об увольнении"
     )
+    is_pedagogical_staff = models.BooleanField(
+        default=False,
+        verbose_name="Педагогический работник",
+        help_text="Требуется для назначения обучения по Первой помощи."
+    )
+
+    exempt_from_safety_instruction = models.BooleanField(
+        default=False,
+        verbose_name="Освобожден от первичного инструктажа",
+        help_text="Если отмечено, сотруднику требуется только Вводный инструктаж.")
 
     def save(self, *args, **kwargs):
-        # Автоматически делаем сотрудника неактивным, если указана дата увольнения
         if self.termination_date:
             self.is_active = False
         else:
-            # Если дату увольнения убрали, снова делаем активным (на случай ошибки ввода)
             self.is_active = True
         super().save(*args, **kwargs)
 

@@ -1,101 +1,215 @@
 {% extends 'base.html' %}
-{% block title %}
-Карточка сотрудника
-{% endblock %}
+{% block title %}Карточка: {{ employee.last_name }} {{ employee.first_name }}{% endblock %}
+
 {% block content %}
-<section>
-  <h2>Карточка сотрудника: {{ employee.last_name }} {{ employee.first_name }}</h2>
+<section style="background: transparent; box-shadow: none; padding: 0;">
 
-  {% if employee.termination_date %}
-  <div style="border: 2px solid red; padding: 10px; margin-bottom: 20px; border-radius: 5px;">
-    <h3 style="color: red; margin-top: 0;">Сотрудник уволен</h3>
-    <p><strong>Дата увольнения:</strong> {{ employee.termination_date|date:"d.m.Y" }}</p>
-    <p><strong>Приказ №:</strong> {{ employee.termination_order_number }}</p>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h2>{{ employee.last_name }} {{ employee.first_name }} {{ employee.middle_name }}</h2>
+      <div>
+          <a href="{% url 'employees:employee_update' employee.pk %}" class="button" style="background-color: var(--warning-color);">Редактировать</a>
+          <a href="{% url 'employees:employee_list' %}" class="button" style="background-color: #95a5a6;">Назад к списку</a>
+      </div>
   </div>
-  {% endif %}
-  <p><strong>Должность:</strong> {{ employee.position }}</p>
-  <p><strong>Отдел:</strong> {{ employee.department }}</p>
-  {% if employee.is_safety_committee_member %}
-  <p><strong>Особый статус:</strong> Член комиссии по охране труда</p>
-  {% endif %}
-  <p><strong>Дата найма:</strong> {{ employee.hire_date }}</p>
-  <p><strong>Email:</strong> {{ employee.email|default:"Не указан" }}</p>
-  <hr>
 
-  <h3>Профессиональное обучение</h3>
-  <a href="{% url 'trainings:training_create' employee.pk %}" class="button">Добавить обучение</a>
-  <br><br>
+  <div class="profile-header">
+      <div class="profile-card {% if employee.termination_date %}terminated{% endif %}">
+          <h3 class="profile-title">Личные данные и должность</h3>
+
+          {% if employee.termination_date %}
+          <div style="background: #fee; padding: 10px; border-radius: 4px; margin-bottom: 15px; color: #c0392b;">
+            <strong>⚠️ Сотрудник уволен:</strong> {{ employee.termination_date|date:"d.m.Y" }} (Приказ № {{ employee.termination_order_number }})
+          </div>
+          {% endif %}
+
+          <div class="info-grid">
+              <div class="info-item">
+                  <label>Должность</label>
+                  <span>{{ employee.position }}</span>
+              </div>
+              <div class="info-item">
+                  <label>Отдел</label>
+                  <span>{{ employee.department }}</span>
+              </div>
+              <div class="info-item">
+                  <label>Дата найма</label>
+                  <span>{{ employee.hire_date|date:"d.m.Y" }}</span>
+              </div>
+              <div class="info-item">
+                  <label>Email</label>
+                  <span>{{ employee.email|default:"-" }}</span>
+              </div>
+              <div class="info-item">
+                  <label>Телефон</label>
+                  <span>{{ employee.phone|default:"-" }}</span>
+              </div>
+              <div class="info-item">
+                  <label>Дата рождения</label>
+                  <span>{{ employee.birth_date|date:"d.m.Y" }}</span>
+              </div>
+          </div>
+      </div>
+
+      <div class="profile-card">
+          <h3 class="profile-title">Статус</h3>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div>
+                  <label style="color:#777; font-size:0.85em;">Текущее состояние:</label><br>
+                  {% if employee.termination_date %}
+                    <span class="badge badge-danger">Уволен</span>
+                  {% elif employee.on_parental_leave %}
+                    <span class="badge badge-info">В декрете</span>
+                  {% else %}
+                    <span class="badge badge-success">Активен</span>
+                  {% endif %}
+              </div>
+
+              {% if employee.is_safety_committee_member %}
+              <div>
+                  <span class="badge badge-warning">Член комиссии по ОТ</span>
+              </div>
+              {% endif %}
+
+              {% if employee.is_executive %}
+              <div>
+                  <span class="badge" style="background: #2c3e50; color: white;">Руководство</span>
+              </div>
+              {% endif %}
+          </div>
+      </div>
+  </div>
+</section>
+
+{% if has_compliance_issues %}
+<section style="border-left: 5px solid var(--danger-color); background-color: #fff5f5;">
+    <h3>⚠️ Требуется внимание (Недостающее обучение)</h3>
+
+    {% if compliance.missing_programs %}
+    <p><strong>Не пройдено обязательное обучение:</strong></p>
+    <ul>
+        {% for prog in compliance.missing_programs %}
+            <li>{{ prog.name }} <a href="{% url 'trainings:training_create' employee.pk %}?program={{ prog.id }}">[Добавить]</a></li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if compliance.expired_programs %}
+    <p><strong>Истек срок действия обучения:</strong></p>
+    <ul>
+        {% for prog in compliance.expired_programs %}
+            <li style="color: var(--danger-color);">{{ prog.name }} (Срок истек) <a href="{% url 'trainings:training_create' employee.pk %}?program={{ prog.id }}">[Обновить]</a></li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if compliance.missing_instructions or compliance.expired_instructions %}
+    <p><strong>Проблемы с инструктажами:</strong></p>
+    <ul>
+        {% for instr in compliance.missing_instructions %}
+            <li>Не проведен: {{ instr.name }}</li>
+        {% endfor %}
+        {% for instr in compliance.expired_instructions %}
+            <li style="color: var(--danger-color);">Просрочен: {{ instr.name }}</li>
+        {% endfor %}
+    </ul>
+    <a href="{% url 'trainings:safety_training_create' employee.pk %}" class="button" style="font-size: 0.8em;">Провести инструктаж</a>
+    {% endif %}
+</section>
+{% endif %}
+
+<section>
+  <div class="section-header">
+      <h3>Профессиональное обучение</h3>
+      <a href="{% url 'trainings:training_create' employee.pk %}" class="button">Добавить обучение</a>
+  </div>
+
   {% if employee.trainings.all %}
-  <table border="1" cellpadding="5" cellspacing="0" width="100%">
+  <table>
     <thead>
     <tr>
       <th>Программа</th>
-      <th>Часы</th>
       <th>Дата</th>
       <th>Периодичность</th>
       <th>Документ</th>
-      <th>Действия</th>
+      <th style="width: 150px;">Действия</th>
     </tr>
     </thead>
     <tbody>
     {% for training in employee.trainings.all %}
     <tr>
-      <td>{{ training.program.name }}</td>
-      <td>{{ training.program.hours }}</td>
+      <td>
+          <strong>{{ training.program.name }}</strong><br>
+          <small style="color:#666;">{{ training.program.hours }} часов</small>
+      </td>
       <td>{{ training.training_date|date:"d.m.Y" }}</td>
-      <td>{{ training.program.frequency_months }} мес.</td>
+      <td>
+          {% if training.program.frequency_months > 0 %}
+            Раз в {{ training.program.frequency_months }} мес.
+          {% else %}
+            Бессрочно
+          {% endif %}
+      </td>
       <td>
         {% if training.document_scan %}
-        <a href="{{ training.document_scan.url }}" target="_blank">Смотреть PDF</a>
+        <a href="{{ training.document_scan.url }}" target="_blank" style="color: var(--accent-color);">📄 Скачать PDF</a>
         {% else %}
-        Нет файла
+        <span style="color: #ccc;">Нет файла</span>
         {% endif %}
       </td>
       <td>
-        <a href="{% url 'trainings:training_update' employee.pk training.pk %}">Редактировать</a> |
-        <a href="{% url 'trainings:training_delete' employee.pk training.pk %}">Удалить</a>
+        <a href="{% url 'trainings:training_update' employee.pk training.pk %}" style="margin-right: 10px;">✏️</a>
+        <a href="{% url 'trainings:training_delete' employee.pk training.pk %}" style="color: var(--danger-color);">🗑️</a>
       </td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <p>Информация об обучении отсутствует.</p>
+  <p style="color: #666; font-style: italic;">Записей об обучении пока нет.</p>
   {% endif %}
-  <hr>
+</section>
 
-  <h3>Инструктажи по охране труда</h3>
-  <a href="{% url 'safety_trainings:safety_training_create' employee.pk %}" class="button">Добавить инструктаж</a>
-  <br><br>
-  {% if employee.safetytraining_set.all %}
-  <table border="1" cellpadding="5" cellspacing="0" width="100%">
+<section>
+  <div class="section-header">
+      <h3>Инструктажи по охране труда</h3>
+      <a href="{% url 'trainings:safety_training_create' employee.pk %}" class="button">Добавить инструктаж</a>
+  </div>
+
+  {% if employee.instructions.all %}  <table>
     <thead>
     <tr>
-      <th>Категория</th>
-      <th>Тип инструктажа</th>
+      <th>Тип / Категория</th>
       <th>Дата проведения</th>
-      <th>Дата следующего</th>
+      <th>Срок действия до</th>
       <th>Инструктор</th>
-      <th>Действия</th>
+      <th style="width: 150px;">Действия</th>
     </tr>
     </thead>
     <tbody>
-    {% for st in employee.safetytraining_set.all %}
-    <tr>
-      <td>{{ st.get_category_display }}</td>
-      <td>{{ st.get_training_type_display }}</td>
+    {% for st in employee.instructions.all %} <tr>
+      <td>
+          <strong>{{ st.instruction_type.name }}</strong><br>
+          <small>{{ st.instruction_type.get_category_display }}</small>
+      </td>
       <td>{{ st.training_date|date:"d.m.Y" }}</td>
+      <td>
+          {% if st.next_training_date %}
+             {{ st.next_training_date|date:"d.m.Y" }}
+          {% else %}
+             -
+          {% endif %}
+      </td>
       <td>{{ st.instructor }}</td>
       <td>
-        <a href="{% url 'safety_trainings:safety_training_update' employee.pk st.pk %}">Редактировать</a> |
-        <a href="{% url 'safety_trainings:safety_training_delete' employee.pk st.pk %}">Удалить</a>
+        <a href="{% url 'trainings:safety_training_update' employee.pk st.pk %}" style="margin-right: 10px;">✏️</a>
+        <a href="{% url 'trainings:safety_training_delete' employee.pk st.pk %}" style="color: var(--danger-color);">🗑️</a>
       </td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <p>Информация об инструктажах отсутствует.</p>
+  <p style="color: #666; font-style: italic;">Инструктажи не проводились.</p>
   {% endif %}
 </section>
 {% endblock %}

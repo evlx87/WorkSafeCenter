@@ -3,7 +3,7 @@
 {% block content %}
 <section>
     <h2>Справочник программ обучения</h2>
-    <a href="{% url 'programs:program_create' %}" class="button">Добавить программу</a>
+    <a href="{% url 'trainings:program_create' %}" class="button">Добавить программу</a>
     <br><br>
     {% if programs %}
     <table border="1" cellpadding="5" cellspacing="0" width="100%">
@@ -22,8 +22,8 @@
             <td>{{ program.hours }}</td>
             <td>{{ program.frequency_months }}</td>
             <td>
-                <a href="{% url 'programs:program_update' program.pk %}">Редактировать</a> |
-                <a href="{% url 'programs:program_delete' program.pk %}">Удалить</a>
+                <a href="{% url 'trainings:program_update' program.pk %}">Редактировать</a> |
+                <a href="{% url 'trainings:program_delete' program.pk %}">Удалить</a>
             </td>
         </tr>
         {% endfor %}

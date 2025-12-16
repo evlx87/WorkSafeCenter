@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     'medical_checks.apps.MedicalChecksConfig',
     'notifications.apps.NotificationsConfig',
     'reports.apps.ReportsConfig',
-    'safety_trainings.apps.SafetyTrainingsConfig',
     'organization.apps.OrganizationConfig',
     'trainings.apps.TrainingsConfig'
 ]

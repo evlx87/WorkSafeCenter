@@ -1,51 +1,104 @@
 {% extends 'base.html' %}
-{% block title %}WorkSafeCenter - Информация об организации{% endblock %}
+{% block title %}WorkSafeCenter - Структура организации{% endblock %}
+
 {% block content %}
-<section>
-  <h2>Отделы</h2>
-  <a href="{% url 'organization:department_create' %}">Добавить отдел</a>
-  <ul>
-    {% for dept in departments %}
-    <li>{{ dept.name }} ({{ dept.head }})
-      <a href="{% url 'organization:department_update' dept.pk %}">Редактировать</a>
-      <a href="{% url 'organization:department_delete' dept.pk %}">Удалить</a>
-    </li>
-    {% endfor %}
-  </ul>
+<section style="background: transparent; box-shadow: none; padding: 0;">
+    <div class="section-header" style="border-bottom: none; margin-bottom: 20px;">
+        <h2>Структура и реквизиты организации</h2>
+    </div>
 
-  <h2>Должности</h2>
-  <a href="{% url 'organization:position_create' %}">Добавить должность</a>
-  <ul>
-    {% for pos in positions %}
-    <li>{{ pos.name }} ({{ pos.department }})
-      <a href="{% url 'organization:position_update' pos.pk %}">Редактировать</a>
-      <a href="{% url 'organization:position_delete' pos.pk %}">Удалить</a>
-    </li>
-    {% endfor %}
-  </ul>
+    <div class="profile-card" style="margin-bottom: 30px; border-left: 5px solid var(--accent-color);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h3 class="profile-title" style="border: none; margin-bottom: 10px;">
+                    {{ safety_info.name_full|default:"Название организации не указано" }}
+                </h3>
+                <p style="color: #666; margin-top: 0; font-size: 0.9em;">
+                    Общие сведения по охране труда
+                </p>
+            </div>
+            <a href="{% url 'organization:safety_info_edit' %}" class="button">
+                ✏️ Редактировать реквизиты
+            </a>
+        </div>
 
-  <h2>Информация по охране труда</h2>
-  {% if safety_info %}
-  <p>Название школы: {{ safety_info.school_name }}</p>
-  <p>Директор: {{ safety_info.director_name }}</p>
-  <p>Специалист по ОТ: {{ safety_info.ot_specialist_name }}</p>
-  <p>Дата оценки рисков: {{ safety_info.risk_assessment_date|default:"Не указана" }}</p>
-  <p><a href="{% url 'organization:safety_info_edit' %}">Редактировать информацию по ОТ</a></p>
-  {% else %}
-  <p>Информация не заполнена. <a href="{% url 'organization:safety_info_edit' %}">Заполнить</a></p>
-  {% endif %}
+        {% if safety_info %}
+        <div class="info-grid" style="margin-top: 20px;">
 
-  <h2>Площадки</h2>
-  <a href="{% url 'organization:site_create' %}">Добавить площадку</a>
-  <ul>
-    {% for site in sites %}
-    <li>{{ site.name }} ({{ site.address }}) - Ответственный: {{ site.ot_responsible_name }}
-      <br><a href="{% url 'organization:site_update' site.pk %}">Редактировать</a>
-      <a href="{% url 'organization:site_delete' site.pk %}">Удалить</a>
-    </li>
-    {% empty %}
-    <li>Площадки не добавлены.</li>
-    {% endfor %}
-  </ul>
-</section>
-{% endblock %}
+            <div class="info-item">
+                <label>Директор (Руководитель)</label>
+                {% with director=safety_info.get_effective_director %}
+                    {% if director %}
+                        <p>
+                            <strong>{{ director.get_full_name }}</strong>
+                            {% if safety_info.director_position and not director.is_acting_director %}
+                                ({{ safety_info.director_position }})
+                            {% elif director.is_acting_director %}
+                                (И.о. директора)
+                            {% else %}
+                                (Директор)
+                            {% endif %}
+                        </p>
+                    {% else %}
+                        <p style="color: var(--danger-color);">Руководитель не назначен</p>
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <div class="info-item">
+                <label>Специалист по охране труда</label>
+                {% with specialist=safety_info.get_effective_safety_specialist %}
+                    {% if specialist %}
+                        <p>
+                            <strong>{{ specialist.get_full_name }}</strong>
+                        </p>
+                    {% else %}
+                        <p style="color: var(--warning-color);">Не назначен</p>
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <div class="info-item">
+                <label>ИНН</label>
+                <p>{{ safety_info.inn|default:"-" }}</p>
+            </div>
+            <div class="info-item">
+                <label>ОГРН</label>
+                <p>{{ safety_info.ogrn|default:"-" }}</p>
+            </div>
+            <div class="info-item form-full-width">
+                <label>Юридический адрес</label>
+                <p>{{ safety_info.address_legal|default:"-" }}</p>
+            </div>
+
+            <div class="info-item form-full-width">
+                <label>Комиссия по охране труда</label>
+                {% with members=safety_info.get_committee_members_including_chair %}
+                    {% if members %}
+                        <ul>
+                        {% for member in members %}
+                            <li>
+                                <strong>{{ member.get_full_name }}</strong>
+                                ({{ member.position }})
+                                {% if member.is_safety_committee_chair %}
+                                    <span style="color: var(--accent-color); font-weight: bold;">— Председатель</span>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p style="color: #777; font-style: italic;">Состав комиссии не назначен.</p>
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 20px; color: var(--danger-color);">
+            <p><strong>Данные организации не заполнены.</strong> Пожалуйста, нажмите "Редактировать реквизиты" для настройки.</p>
+        </div>
+        {% endif %}
+
+    </div>
+
+    {% endblock %}

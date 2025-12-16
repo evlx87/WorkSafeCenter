@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Удаление инструктажа{% endblock %}
+
+{% block content %}
+<section style="border-left: 5px solid var(--danger-color); background-color: #fff5f5;">
+    <h2>🗑️ Удаление записи об инструктаже</h2>
+
+    <p style="color: #666; margin-bottom: 20px;">
+        Сотрудник: <strong>{{ object.employee.last_name }} {{ object.employee.first_name }}</strong>, Должность: {{ object.employee.position }}
+    </p>
+
+    <p>
+        Вы уверены, что хотите удалить запись об инструктаже:
+    </p>
+
+    <h3 style="color: var(--danger-color); margin: 15px 0;">
+        "{{ object.instruction_type.name }}" от {{ object.training_date|date:"d.m.Y" }}?
+    </h3>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="button" style="background-color: var(--danger-color);">Подтвердить удаление</button>
+        <a href="{% url 'employees:employee_detail' object.employee.pk %}" class="button" style="background-color: #95a5a6;">Отмена</a>
+    </form>
+</section>
+{% endblock %}

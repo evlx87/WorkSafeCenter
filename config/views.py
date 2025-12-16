@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from incidents.models import Incident
 from medical_checks.models import MedicalCheck
-from safety_trainings.models import SafetyTraining
+from trainings.models import Instruction
 
 
 def index(request):
@@ -19,7 +19,7 @@ def index(request):
     ).values('employee').distinct().count()
 
     # 2. Просроченные инструктажи (аналогично)
-    overdue_trainings_count = SafetyTraining.objects.filter(
+    overdue_trainings_count = Instruction.objects.filter(
         next_training_date__lt=today, employee__is_active=True
     ).values('employee').distinct().count()
 
@@ -30,7 +30,7 @@ def index(request):
             next_check_date__lte=in_30_days,
             employee__is_active=True))
     upcoming_events += list(
-        SafetyTraining.objects.filter(
+        Instruction.objects.filter(
             next_training_date__gte=today,
             next_training_date__lte=in_30_days,
             employee__is_active=True))

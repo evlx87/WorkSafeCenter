@@ -59,9 +59,10 @@ class PositionDeleteView(DeleteView):
 
 
 def safety_info_edit(request):
-    safety_info = OrganizationSafetyInfo.objects.first()
-    if not safety_info:
-        safety_info = OrganizationSafetyInfo()
+    # Используем метод, который гарантированно вернет или создаст единственную
+    # запись
+    safety_info = OrganizationSafetyInfo.load_organization()
+
     if request.method == 'POST':
         form = OrganizationSafetyInfoForm(
             request.POST, request.FILES, instance=safety_info)
@@ -70,8 +71,11 @@ def safety_info_edit(request):
             return redirect('organization:organization_info')
     else:
         form = OrganizationSafetyInfoForm(instance=safety_info)
-    return render(request, 'organization/safety_info_form.html',
-                  {'form': form})
+
+    return render(request,
+                  'organization/safety_info_form.html',
+                  {'form': form,
+                   'safety_info': safety_info})  # Передаем safety_info для удобства
 
 
 class SiteCreateView(CreateView):
