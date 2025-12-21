@@ -1,104 +1,134 @@
 {% extends 'base.html' %}
-{% block title %}WorkSafeCenter - Структура организации{% endblock %}
+{% block title %}WorkSafeCenter - Инфо{% endblock %}
 
 {% block content %}
 <section style="background: transparent; box-shadow: none; padding: 0;">
-    <div class="section-header" style="border-bottom: none; margin-bottom: 20px;">
-        <h2>Структура и реквизиты организации</h2>
+    <div class="section-header" style="border-bottom: none; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin: 0;">Структура и реквизиты организации</h2>
+        <div style="display: flex; gap: 10px;">
+            <a href="{% url 'organization:department_create' %}" class="button success">+ Добавить отдел</a>
+        </div>
     </div>
 
-    <div class="profile-card" style="margin-bottom: 30px; border-left: 5px solid var(--accent-color);">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-                <h3 class="profile-title" style="border: none; margin-bottom: 10px;">
-                    {{ safety_info.name_full|default:"Название организации не указано" }}
-                </h3>
-                <p style="color: #666; margin-top: 0; font-size: 0.9em;">
-                    Общие сведения по охране труда
-                </p>
+    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 25px; align-items: start;">
+
+        <div style="display: flex; direction: ltr; flex-direction: column; gap: 25px;">
+
+            <div class="profile-card" style="margin: 0; border-left: 5px solid var(--accent-color);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                    <h3 class="profile-title" style="border: none; margin: 0;">
+                        {{ safety_info.name_full|default:"Название организации не указано" }}
+                    </h3>
+                    <a href="{% url 'organization:safety_info_edit' %}" class="button-small" style="text-decoration: none;">✏️</a>
+                </div>
+
+                {% if safety_info %}
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Директор</label>
+                        <p>{{ safety_info.head_name|default:"-" }}</p>
+                    </div>
+                    <div class="info-item">
+                        <label>ИНН / КПП</label>
+                        <p>{{ safety_info.inn|default:"-" }} / {{ safety_info.kpp|default:"-" }}</p>
+                    </div>
+                    <div class="info-item">
+                        <label>ОГРН</label>
+                        <p>{{ safety_info.ogrn|default:"-" }}</p>
+                    </div>
+                    <div class="info-item">
+                        <label>Телефон / E-mail</label>
+                        <p>{{ safety_info.contact_phone|default:"-" }} / {{ safety_info.contact_email|default:"-" }}</p>
+                    </div>
+                    <div class="info-item form-full-width">
+                        <label>Юридический адрес</label>
+                        <p>{{ safety_info.address_legal|default:"-" }}</p>
+                    </div>
+                </div>
+                {% endif %}
             </div>
-            <a href="{% url 'organization:safety_info_edit' %}" class="button">
-                ✏️ Редактировать реквизиты
-            </a>
+
+            <div class="profile-card" style="margin: 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 class="profile-title" style="border: none; margin: 0; font-size: 1.1em;">📍 Филиалы и площадки</h3>
+                    <a href="{% url 'organization:site_create' %}" style="text-decoration: none; font-size: 0.85em; color: var(--accent-color);">+ Добавить</a>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+                    {% for site in sites %}
+                        <div style="border: 1px solid #f0f0f0; padding: 10px; border-radius: 6px; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong style="color: var(--primary-color);">{{ site.name }}</strong><br>
+                                <small style="color: #666;">{{ site.address|truncatechars:50 }}</small>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <a href="{% url 'organization:site_edit' site.pk %}" title="Редактировать">✏️</a>
+                                <a href="{% url 'organization:site_delete' site.pk %}" title="Удалить">🗑️</a>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p style="color: #999; font-style: italic; font-size: 0.9em; text-align: center;">Площадки не добавлены</p>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
 
-        {% if safety_info %}
-        <div class="info-grid" style="margin-top: 20px;">
+        <div class="profile-card" style="margin: 0;">
+            <h3 class="profile-title" style="border-bottom: 2px solid #f0f0f0; margin-bottom: 15px; padding-bottom: 10px;">
+                📂 Подразделения
+            </h3>
 
-            <div class="info-item">
-                <label>Директор (Руководитель)</label>
-                {% with director=safety_info.get_effective_director %}
-                    {% if director %}
-                        <p>
-                            <strong>{{ director.get_full_name }}</strong>
-                            {% if safety_info.director_position and not director.is_acting_director %}
-                                ({{ safety_info.director_position }})
-                            {% elif director.is_acting_director %}
-                                (И.о. директора)
-                            {% else %}
-                                (Директор)
-                            {% endif %}
-                        </p>
-                    {% else %}
-                        <p style="color: var(--danger-color);">Руководитель не назначен</p>
-                    {% endif %}
-                {% endwith %}
-            </div>
+            <div class="departments-accordion">
+                {% for department in departments %}
+                    <details style="margin-bottom: 8px; border: 1px solid #eee; border-radius: 6px; background: #fff;">
+                        <summary style="padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 500; list-style: none;">
+                            <span style="display: flex; align-items: center; gap: 8px;">
+                                <span style="color: var(--accent-color);">▼</span>
+                                {{ department.name }}
+                                <span style="font-weight: normal; color: #888; font-size: 0.85em;">({{ department.position_set.count }})</span>
+                            </span>
+                            <a href="{% url 'organization:department_update' department.pk %}" style="text-decoration: none; font-size: 0.9em;">✏️</a>
+                        </summary>
 
-            <div class="info-item">
-                <label>Специалист по охране труда</label>
-                {% with specialist=safety_info.get_effective_safety_specialist %}
-                    {% if specialist %}
-                        <p>
-                            <strong>{{ specialist.get_full_name }}</strong>
-                        </p>
-                    {% else %}
-                        <p style="color: var(--warning-color);">Не назначен</p>
-                    {% endif %}
-                {% endwith %}
+                        <div style="padding: 0 12px 12px 35px; border-top: 1px solid #fafafa;">
+                            <ul style="list-style: none; padding: 0; margin: 0;">
+                                {% for position in department.position_set.all %}
+                                    <li style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f9f9f9; font-size: 0.9em;">
+                                        <span>{{ position.name }}</span>
+                                        <div style="display: flex; gap: 8px; opacity: 0.5;">
+                                            <a href="{% url 'organization:position_update' position.pk %}" title="Редактировать">✏️</a>
+                                            <a href="{% url 'organization:position_delete' position.pk %}" title="Удалить">🗑️</a>
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                                <li style="margin-top: 10px;">
+                                    <a href="{% url 'organization:position_create' %}?department={{ department.pk }}"
+                                       style="color: var(--accent-color); text-decoration: none; font-size: 0.85em; font-weight: 600;">
+                                        + Добавить должность
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </details>
+                {% empty %}
+                    <p style="text-align: center; color: #999; padding: 20px;">Отделы не созданы</p>
+                {% endfor %}
             </div>
-
-            <div class="info-item">
-                <label>ИНН</label>
-                <p>{{ safety_info.inn|default:"-" }}</p>
-            </div>
-            <div class="info-item">
-                <label>ОГРН</label>
-                <p>{{ safety_info.ogrn|default:"-" }}</p>
-            </div>
-            <div class="info-item form-full-width">
-                <label>Юридический адрес</label>
-                <p>{{ safety_info.address_legal|default:"-" }}</p>
-            </div>
-
-            <div class="info-item form-full-width">
-                <label>Комиссия по охране труда</label>
-                {% with members=safety_info.get_committee_members_including_chair %}
-                    {% if members %}
-                        <ul>
-                        {% for member in members %}
-                            <li>
-                                <strong>{{ member.get_full_name }}</strong>
-                                ({{ member.position }})
-                                {% if member.is_safety_committee_chair %}
-                                    <span style="color: var(--accent-color); font-weight: bold;">— Председатель</span>
-                                {% endif %}
-                            </li>
-                        {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p style="color: #777; font-style: italic;">Состав комиссии не назначен.</p>
-                    {% endif %}
-                {% endwith %}
-            </div>
-
         </div>
-        {% else %}
-        <div style="text-align: center; padding: 20px; color: var(--danger-color);">
-            <p><strong>Данные организации не заполнены.</strong> Пожалуйста, нажмите "Редактировать реквизиты" для настройки.</p>
-        </div>
-        {% endif %}
 
     </div>
+</section>
 
-    {% endblock %}
+<style>
+    /* Стили для аккордеона */
+    details summary::-webkit-details-marker { display: none; }
+    details[open] summary span span { transform: rotate(180deg); display: inline-block; }
+    summary:hover { background-color: #fcfcfc; }
+
+    /* Дополнительная плотность для info-grid */
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .info-item label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 3px; display: block; }
+    .info-item p { margin: 0; font-weight: 500; color: #333; font-size: 0.95rem; }
+    .button.success { background-color: #28a745; color: white; border: none; }
+</style>
+{% endblock %}

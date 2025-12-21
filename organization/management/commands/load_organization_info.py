@@ -1,114 +1,118 @@
+import json
 import os
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
+from django.db import transaction
 from dotenv import load_dotenv
 
-from employees.models import Employee
-from organization.models import OrganizationSafetyInfo
+from organization.models import OrganizationSafetyInfo, Department, Position
 
 load_dotenv()
 
 
 class Command(BaseCommand):
-    help = 'Loads or updates OrganizationSafetyInfo model instance from .env file settings.'
+    help = 'Загружает данные об организации, отделах и должностях из .env файла.'
 
+    @transaction.atomic
     def handle(self, *args, **options):
         self.stdout.write(self.style.NOTICE(
-            'Starting organization info load/update...'))
+            'Начинаем загрузку данных организации...'))
+
+        # ==========================================
+        # 1. Загрузка основных реквизитов организации
+        # ==========================================
+        name_full = os.getenv('ORG_NAME_FULL')
+        inn = os.getenv('ORG_INN', '')
+        kpp = os.getenv('ORG_KPP', '')  # Новое поле
+        ogrn = os.getenv('ORG_OGRN', '')
+        address_legal = os.getenv('ORG_ADDRESS_LEGAL', '')
+        contact_phone = os.getenv('ORG_CONTACT_PHONE', '')
+
+        if not name_full:
+            self.stdout.write(self.style.ERROR(
+                'Ошибка: Переменная ORG_NAME_FULL не найдена в .env'))
+            return
+
+        # Используем update_or_create для синглтона (pk=1)
+        info, created = OrganizationSafetyInfo.objects.update_or_create(
+            pk=1,
+            defaults={
+                'name_full': name_full,
+                'inn': inn,
+                'kpp': kpp,
+                'ogrn': ogrn,
+                'address_legal': address_legal,
+                'contact_phone': contact_phone,
+            }
+        )
+
+        action = "Создана" if created else "Обновлена"
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'✅ Информация об организации {action}: {
+                    info.name_full} (ИНН: {
+                    info.inn}, КПП: {
+                    info.kpp})'))
+
+        # ==========================================
+        # 2. Загрузка Структуры (Отделы и Должности)
+        # ==========================================
+        structure_json = os.getenv('ORG_STRUCTURE_JSON')
+
+        if not structure_json:
+            self.stdout.write(self.style.WARNING(
+                '⚠️ Переменная ORG_STRUCTURE_JSON не найдена. Отделы и должности не обновлены.'))
+            return
 
         try:
-            # 1. Загрузка данных из .env
-            name_full = os.getenv('ORG_NAME_FULL')
-            inn = os.getenv('ORG_INN', '')  # С пустым значением по умолчанию
-            ogrn = os.getenv('ORG_OGRN', '')
-            address_legal = os.getenv('ORG_ADDRESS_LEGAL', '')
-            contact_phone = os.getenv('ORG_CONTACT_PHONE', '')
-
-            # Связанные объекты
-            director_id = os.getenv('ORG_DIRECTOR_ID')
-            director_position = os.getenv('ORG_DIRECTOR_POSITION', 'Директор')
-            safety_specialist_id = os.getenv('ORG_SAFETY_SPECIALIST_ID')
-            committee_ids_str = os.getenv(
-                'ORG_SAFETY_COMMITTEE_MEMBER_IDS', '')
-
-            if not name_full:
-                raise CommandError(
-                    "Переменная ORG_NAME_FULL не найдена в .env.")
-
-            # 2. Получение или создание единственной записи
-            # OrganizationSafetyInfo
-            info, created = OrganizationSafetyInfo.objects.get_or_create(
-                pk=1,  # Использование PK=1 гарантирует синглтон
-                defaults={'name_full': name_full}
-            )
-
-            # 3. Обновление простых полей
-            info.name_full = name_full
-            info.inn = inn
-            info.ogrn = ogrn
-            info.address_legal = address_legal
-            info.contact_phone = contact_phone
-            info.director_position = director_position
-
-            # 4. Обновление полей ForeignKey (Director и Specialist)
-            info.director = self._get_employee_or_none(
-                director_id, 'директора')
-            info.safety_specialist = self._get_employee_or_none(
-                safety_specialist_id, 'специалиста по ОТ')
-
-            info.save()
-
-            # 5. Обновление ManyToMany (Комиссия)
-            committee_members = self._get_committee_members(committee_ids_str)
-            info.safety_committee_members.set(committee_members)
-
-            action = "Создана" if created else "Обновлена"
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'✅ Информация об организации успешно {action}.'))
-
-        except CommandError as e:
+            structure_data = json.loads(structure_json)
+        except json.JSONDecodeError as e:
             self.stdout.write(
                 self.style.ERROR(
-                    f'❌ Ошибка при выполнении: {e}'))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f'❌ Неизвестная ошибка: {e}'))
+                    f'❌ Ошибка чтения JSON структуры из .env: {e}'))
+            return
 
-    def _get_employee_or_none(self, employee_id, role_name):
-        """Получает объект Employee по ID или возвращает None, если ID пуст или не найден."""
-        if not employee_id:
-            return None
+        self.stdout.write('Загрузка структуры подразделений...')
 
-        try:
-            return Employee.objects.get(pk=int(employee_id))
-        except (ValueError, Employee.DoesNotExist):
-            self.stdout.write(
-                self.style.WARNING(
-                    f"⚠️ Внимание: Сотрудник для роли '{role_name}' (ID={employee_id}) не найден. Поле оставлено пустым."))
-            return None
+        counters = {'deps_created': 0, 'pos_created': 0}
 
-    def _get_committee_members(self, ids_str):
-        """Получает список объектов Employee для комиссии."""
-        if not ids_str:
-            return []
+        for dept_name, positions_list in structure_data.items():
+            # 2.1 Создаем или получаем Отдел
+            department, dept_created = Department.objects.get_or_create(
+                name=dept_name.strip()
+            )
+            if dept_created:
+                counters['deps_created'] += 1
+                self.stdout.write(f'  + Отдел: {department.name}')
 
-        try:
-            id_list = [int(i.strip()) for i in ids_str.split(',') if i.strip()]
-        except ValueError:
-            self.stdout.write(self.style.WARNING(
-                "⚠️ Внимание: ID членов комиссии должны быть целыми числами, разделенными запятыми. Поле оставлено пустым."
-            ))
-            return []
+            # 2.2 Создаем должности внутри этого отдела
+            if isinstance(positions_list, list):
+                for pos_name in positions_list:
+                    position, pos_created = Position.objects.get_or_create(
+                        name=pos_name.strip(),
+                        defaults={'department': department}
+                    )
 
-        members = Employee.objects.filter(pk__in=id_list)
+                    # Если должность существовала, но была в другом отделе или
+                    # без отдела - обновляем
+                    if not pos_created and position.department != department:
+                        position.department = department
+                        position.save()
+                        self.stdout.write(
+                            f'    > Должность "{
+                                position.name}" перемещена в {
+                                department.name}')
 
-        # Проверка на пропущенные ID
-        found_ids = set(member.pk for member in members)
-        missing_ids = set(id_list) - found_ids
+                    if pos_created:
+                        counters['pos_created'] += 1
+                        self.stdout.write(f'    + Должность: {position.name}')
+            else:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f'    ⚠️ Неверный формат списка должностей для {dept_name}'))
 
-        if missing_ids:
-            self.stdout.write(
-                self.style.WARNING(
-                    f"⚠️ Внимание: Некоторые ID членов комиссии не найдены в базе данных: {missing_ids}. Игнорируются."))
-
-        return list(members)
+        self.stdout.write(self.style.SUCCESS(
+            f'\n✅ Структура загружена.\n'
+            f'   Новых отделов: {counters["deps_created"]}\n'
+            f'   Новых должностей: {counters["pos_created"]}'
+        ))
