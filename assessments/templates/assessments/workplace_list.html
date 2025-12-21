@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="section-header">
+    <h2>Реестр рабочих мест</h2>
+    <a href="{% url 'assessments:workplace_create' %}" class="button">Создать новое РМ</a>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>№ РМ</th>
+            <th>Должность</th>
+            <th>Класс СОУТ</th>
+            <th>Риски</th>
+            <th>Действия</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for wp in workplaces %}
+        <tr>
+            <td>{{ wp.number }}</td>
+            <td>{{ wp.position.name }}</td>
+            <td>
+                {% if wp.sout %}
+                    {{ wp.sout.get_class_conditions_display }}
+                {% else %}
+                    <a href="{% url 'assessments:sout_manage' wp.pk %}" style="color: red;">Заполнить СОУТ</a>
+                {% endif %}
+            </td>
+            <td>{{ wp.risks.count }} рисков</td>
+            <td>
+                <a href="{% url 'assessments:workplace_update' wp.pk %}">✏️ РМ</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -23,6 +23,12 @@ class Employee(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         verbose_name="Отдел")
+    workplace = models.ForeignKey(
+        'assessments.Workplace',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Рабочее место")
     birth_date = models.DateField(
         verbose_name="Дата рождения")
     hire_date = models.DateField(

@@ -7,11 +7,21 @@ class EmployeeForm(forms.ModelForm):
     class Meta:
         model = Employee
         fields = [
-            'last_name', 'first_name', 'middle_name', 'position',
-            'department', 'birth_date', 'hire_date', 'email', 'phone',
-            'is_executive', 'on_parental_leave', 'is_safety_committee_member',
-            'termination_date', 'termination_order_number'
-        ]
+            'last_name',
+            'first_name',
+            'middle_name',
+            'position',
+            'department',
+            'workplace',
+            'birth_date',
+            'hire_date',
+            'email',
+            'phone',
+            'is_executive',
+            'on_parental_leave',
+            'is_safety_committee_member',
+            'termination_date',
+            'termination_order_number']
         widgets = {
             'birth_date': forms.DateInput(attrs={'type': 'date'}),
             'hire_date': forms.DateInput(attrs={'type': 'date'}),
