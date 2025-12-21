@@ -19,6 +19,7 @@ class Command(BaseCommand):
         notification_period_days = 30
         today = timezone.now().date()
         future_date = today + timedelta(days=notification_period_days)
+        danger_zone = today + timedelta(days=60)
 
         created_count = 0
 
@@ -83,6 +84,17 @@ class Command(BaseCommand):
                 created_count += 1
                 self.stdout.write(
                     f'  - Создано уведомление об инструктаже для {training.employee}.')
+
+        souts_to_renew = SOUTAssessment.objects.filter(
+            next_assessment_date__lte=danger_zone)
+
+        for sout in souts_to_renew:
+            Notification.objects.get_or_create(
+                message=f"Требуется плановая СОУТ для РМ №{
+                    sout.workplace.number}. Срок до {
+                    sout.next_assessment_date}",
+                # ... остальные поля ...
+            )
 
         self.stdout.write(
             self.style.SUCCESS(

@@ -1,6 +1,6 @@
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
-
+from django.utils import timezone
 from organization.models import Department
 from trainings.services import check_employee_compliance
 from .forms import EmployeeForm
@@ -48,6 +48,7 @@ class EmployeeDetailView(DetailView):
         compliance_status = check_employee_compliance(self.object)
 
         context['compliance'] = compliance_status
+        context['today'] = timezone.now().date()
         # Просто флаг, есть ли проблемы, для отображения блока предупреждения
         context['has_compliance_issues'] = any([
             compliance_status['missing_programs'],

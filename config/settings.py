@@ -50,7 +50,8 @@ INSTALLED_APPS = [
     'notifications.apps.NotificationsConfig',
     'reports.apps.ReportsConfig',
     'organization.apps.OrganizationConfig',
-    'trainings.apps.TrainingsConfig'
+    'trainings.apps.TrainingsConfig',
+    'assessments.apps.AssessmentsConfig',
 ]
 
 MIDDLEWARE = [

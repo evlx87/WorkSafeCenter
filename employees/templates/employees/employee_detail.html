@@ -80,6 +80,72 @@
   </div>
 </section>
 
+<section>
+    <div class="section-header">
+        <h3>Условия труда и рабочее место</h3>
+        {% if not employee.workplace %}
+            <span style="color: var(--danger-color); font-weight: bold;">⚠️ Рабочее место не назначено</span>
+        {% endif %}
+    </div>
+
+    {% if employee.workplace %}
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="profile-card" style="margin-bottom: 0;">
+            <h4 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 5px;">Специальная оценка (СОУТ)</h4>
+            <p><strong>РМ №:</strong> {{ employee.workplace.number }}</p>
+            {% if employee.workplace.sout %}
+                <p><strong>Класс условий:</strong> {{ employee.workplace.sout.get_class_conditions_display }}</p>
+                <p><strong>Дата оценки:</strong> {{ employee.workplace.sout.assessment_date|date:"d.m.Y" }}</p>
+                <p><strong>Следующая оценка:</strong>
+                    <span style="{% if employee.workplace.sout.next_assessment_date < today %}color: var(--danger-color); font-weight: bold;{% endif %}">
+                        {{ employee.workplace.sout.next_assessment_date|date:"d.m.Y" }}
+                    </span>
+                </p>
+            {% else %}
+                <p style="color: #7f8c8d; font-style: italic;">Данные СОУТ отсутствуют</p>
+            {% endif %}
+        </div>
+
+        <div class="profile-card" style="margin-bottom: 0;">
+            <h4 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 5px;">Профессиональные риски</h4>
+            {% if employee.workplace.risks.all %}
+                <table style="font-size: 0.9em; margin-top: 10px;">
+                    <thead>
+                        <tr>
+                            <th>Источник опасности</th>
+                            <th>Уровень</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for risk in employee.workplace.risks.all %}
+                        <tr>
+                            <td>{{ risk.hazard_source }}</td>
+                            <td>
+                                <span style="
+                                    padding: 2px 6px;
+                                    border-radius: 4px;
+                                    color: white;
+                                    background-color: {% if risk.risk_level == 'high' or risk.risk_level == 'critical' %}var(--danger-color){% elif risk.risk_level == 'medium' %}var(--warning-color){% else %}#27ae60{% endif %};
+                                ">
+                                    {{ risk.get_risk_level_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color: #7f8c8d; font-style: italic;">Риски не зафиксированы</p>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+        <p style="text-align: center; padding: 20px; background: #f9f9f9; border-radius: 8px;">
+            Для отображения условий труда необходимо закрепить за сотрудником <strong>Рабочее место</strong> в режиме редактирования.
+        </p>
+    {% endif %}
+</section>
+
 {% if has_compliance_issues %}
 <section style="border-left: 5px solid var(--danger-color); background-color: #fff5f5;">
     <h3>⚠️ Требуется внимание (Недостающее обучение)</h3>
