@@ -1,15 +1,53 @@
 {% extends 'base.html' %}
-{% block title %}Загрузка документа{% endblock %}
 {% block content %}
-<section>
-  <h2>Загрузка нового документа</h2>
-  
-  {# ВАЖНО: enctype="multipart/form-data" необходим для загрузки файлов #}
-  <form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Загрузить</button>
-    <a href="{% url 'documents:documents_list' %}">Отмена</a>
-  </form>
+<section class="profile-card">
+    <h2>{% if form.instance.pk %}Редактирование{% else %}Добавление{% endif %} документа</h2>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div style="margin-top: 20px;">
+            <button type="submit" class="button">Сохранить</button>
+            <a href="{% url 'documents:documents_list' %}" class="button" style="background-color: #95a5a6;">Отмена</a>
+        </div>
+    </form>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const typeSelect = document.getElementById('id_document_type');
+
+    // Получаем контейнеры полей (в Django form.as_p это теги <p>)
+    const fileContainer = document.getElementById('id_file_field').closest('p');
+    const linkContainer = document.getElementById('id_external_link_field').closest('p');
+    const employeeContainer = document.getElementById('id_employee_field').closest('p');
+
+    function toggleFields() {
+        const selectedType = typeSelect.value;
+
+        // 1. Сотрудник: показываем только для "Сертификат/Удостоверение"
+        if (selectedType === 'CERTIFICATE') {
+            employeeContainer.style.display = 'block';
+        } else {
+            employeeContainer.style.display = 'none';
+            document.getElementById('id_employee_field').value = '';
+        }
+
+        // 2. Ссылка: показываем только для "НПА (РФ)"
+        if (selectedType === 'FEDERAL') {
+            linkContainer.style.display = 'block';
+        } else {
+            linkContainer.style.display = 'none';
+            document.getElementById('id_external_link_field').value = '';
+        }
+
+        // 3. Файл: доступен всегда (для НПА как альтернатива, для остальных — как основной)
+        // Если хотите запретить файл для чего-то конкретного, можно добавить условие сюда.
+        fileContainer.style.display = 'block';
+    }
+
+    typeSelect.addEventListener('change', toggleFields);
+    toggleFields(); // Вызов при загрузке страницы
+});
+</script>
 {% endblock %}

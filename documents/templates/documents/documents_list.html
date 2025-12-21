@@ -8,18 +8,26 @@
         <a href="{% url 'documents:document_create' %}" class="button"> + Добавить документ</a>
     </div>
 
-    <form method="get" action="{% url 'documents:documents_list' %}" class="filter-toolbar">
+    <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="?group=federal" class="button" style="background-color: #2980b9; text-decoration: none;">⚖️ НПА (РФ)</a>
+        <a href="?group=org" class="button" style="background-color: #27ae60; text-decoration: none;">🏢 Локальные акты</a>
+        <a href="{% url 'documents:documents_list' %}" class="button" style="background-color: #95a5a6; text-decoration: none;">Все документы</a>
+    </div>
+
+    <form method="get" action="{% url 'documents:documents_list' %}" class="filter-toolbar" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
         <input
             type="text"
             name="search_query"
             placeholder="🔍 Поиск по названию..."
-            value="{{ search_query }}"
+            value="{{ search_query|default:'' }}"
+            style="min-width: 300px;"
         >
-        <select name="category">
-            <option value="">🗂️ Все категории</option>
-            {% for cat in categories %}
-            <option value="{{ cat.pk }}" {% if cat.pk|stringformat:"s" == selected_category %}selected{% endif %}>
-                {{ cat.name }}
+
+        <select name="doc_type">
+            <option value="">📋 Все типы</option>
+            {% for code, name in doc_types %}
+            <option value="{{ code }}" {% if code == selected_doc_type %}selected{% endif %}>
+                {{ name }}
             </option>
             {% endfor %}
         </select>
@@ -29,62 +37,69 @@
     </form>
 
     {% if documents %}
-    <table>
-        <thead>
-        <tr>
-            <th>Название и категория</th>
-            <th>Срок действия до</th>
-            <th>Статус</th>
-            <th>Файл</th>
-            <th style="width: 120px;">Действия</th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for doc in documents %}
-        <tr {% if doc.is_overdue %}style="background-color: #fef5f5;"{% endif %}>
-            <td>
-                <a href="{% url 'documents:document_detail' doc.pk %}" style="font-weight: bold; color: var(--primary-color);">
-                    {{ doc.title }}
-                </a>
-                <div style="font-size: 0.85em; color: #666; margin-top: 3px;">
-                    Категория: {{ doc.category.name }}
-                </div>
-            </td>
-            <td>
-                {% if doc.end_date %}
-                    {{ doc.end_date|date:"d.m.Y" }}
-                {% else %}
-                    Бессрочно
-                {% endif %}
-            </td>
-            <td>
-                {% if doc.is_overdue %}
-                    <span class="badge badge-danger">Просрочен</span>
-                {% elif doc.days_to_expire < 90 and doc.end_date %}
-                    <span class="badge badge-warning">Истекает скоро</span>
-                {% else %}
-                    <span class="badge badge-success">Актуален</span>
-                {% endif %}
-            </td>
-            <td>
-                {% if doc.document_file %}
-                    <a href="{{ doc.document_file.url }}" target="_blank" style="color: var(--accent-color);">
-                        ⬇️ Скачать
-                    </a>
-                {% else %}
-                    <span style="color: #ccc;">Нет файла</span>
-                {% endif %}
-            </td>
-            <td>
-                <a href="{% url 'documents:document_update' doc.pk %}" title="Редактировать">✏️</a>
-                <a href="{% url 'documents:document_delete' doc.pk %}" title="Удалить" style="color: var(--danger-color); margin-left: 10px;">🗑️</a>
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    <div class="profile-card" style="padding: 0; overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+            <tr style="background-color: #f2f2f2; text-align: left;">
+                <th style="padding: 12px;">Название и тип</th>
+                <th style="padding: 12px;">Срок действия</th>
+                <th style="padding: 12px;">Статус</th>
+                <th style="padding: 12px;">Документ</th>
+                <th style="padding: 12px; width: 100px; text-align: center;">Действия</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for doc in documents %}
+            <tr style="border-bottom: 1px solid #eee; {% if doc.is_overdue %}background-color: #fff5f5;{% endif %}">
+                <td style="padding: 12px;">
+                    <div style="font-weight: bold; color: var(--primary-color);">{{ doc.title }}</div>
+                    <div style="font-size: 0.85em; color: #666; margin-top: 3px;">
+                        {{ doc.get_document_type_display }}
+                        {% if doc.employee %}
+                         | 👤 {{ doc.employee.last_name }} {{ doc.employee.first_name|slice:":1" }}.
+                        {% endif %}
+                    </div>
+                </td>
+                <td style="padding: 12px;">
+                    {% if doc.end_date %}
+                        {{ doc.end_date|date:"d.m.Y" }}
+                    {% else %}
+                        <span style="color: #95a5a6;">Бессрочно</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 12px;">
+                    {% if doc.end_date %}
+                        {% if doc.is_overdue %}
+                            <span style="background-color: var(--danger-color); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;">Просрочен</span>
+                        {% else %}
+                            <span style="background-color: #27ae60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;">Актуален</span>
+                        {% endif %}
+                    {% else %}
+                        <span style="background-color: #27ae60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;">Действует</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 12px;">
+                    {% if doc.file %}
+                        <a href="{{ doc.file.url }}" target="_blank" style="text-decoration: none; color: #2980b9;">⬇️ Файл</a>
+                    {% elif doc.external_link %}
+                        <a href="{{ doc.external_link }}" target="_blank" style="text-decoration: none; color: #2980b9;">🔗 Ссылка</a>
+                    {% else %}
+                        <span style="color: #ccc;">Нет файла</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 12px; text-align: center;">
+                    <a href="{% url 'documents:documents_list' %}" title="Редактировать">✏️</a>
+                    <a href="{% url 'documents:document_delete' doc.pk %}" title="Удалить" style="color: var(--danger-color); margin-left: 10px;">🗑️</a>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
-    <p style="text-align: center; padding: 30px; color: #777;">В этом разделе документы не найдены.</p>
+    <div style="text-align: center; padding: 50px; background: white; border-radius: 8px;">
+        <p style="color: #777;">Документы не найдены.</p>
+    </div>
     {% endif %}
 </section>
 {% endblock %}

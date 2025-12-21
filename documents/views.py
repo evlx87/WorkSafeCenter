@@ -16,12 +16,18 @@ class DocumentListView(ListView):
         queryset = super().get_queryset().select_related('employee')
         search_query = self.request.GET.get('search_query', '')
         doc_type = self.request.GET.get('doc_type', '')
+        group = self.request.GET.get('group', '')
 
         if search_query:
             queryset = queryset.filter(title__icontains=search_query)
 
         if doc_type:
             queryset = queryset.filter(document_type=doc_type)
+
+        if group == 'federal':
+            queryset = queryset.filter(document_type='FEDERAL')
+        elif group == 'org':
+            queryset = queryset.filter(document_type__in=['LOCAL', 'ORDER', 'INSTRUCTION'])
 
         return queryset
 
