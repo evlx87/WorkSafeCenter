@@ -94,11 +94,18 @@ class Employee(models.Model):
         verbose_name="Педагогический работник",
         help_text="Требуется для назначения обучения по Первой помощи."
     )
-
     exempt_from_safety_instruction = models.BooleanField(
         default=False,
         verbose_name="Освобожден от первичного инструктажа",
         help_text="Если отмечено, сотруднику требуется только Вводный инструктаж.")
+    is_pedagogical = models.BooleanField(
+        "Педагогический работник",
+        default=False
+    )
+    is_executive = models.BooleanField(
+        "Руководитель",
+        default=False
+    )
 
     def save(self, *args, **kwargs):
         if self.termination_date:

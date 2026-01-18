@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Список направляемых на обучение</h2>
+
+<form method="get" class="mb-4">
+    <label>Выберите программу:</label>
+    <select name="program_id" onchange="this.form.submit()">
+        {% for program in programs %}
+            <option value="{{ program.id }}" {% if program.id|slugify == selected_program_id %}selected{% endif %}>
+                {{ program.name }}
+            </option>
+        {% endfor %}
+    </select>
+</form>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>ФИО</th>
+            <th>Должность</th>
+            <th>Последнее обучение</th>
+            <th>Статус</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for emp in employees %}
+        <tr>
+            <td>{{ emp.last_name }} {{ emp.first_name }}</td>
+            <td>{{ emp.position.name }}</td>
+            <td>{{ emp.reason }}</td> </tr>
+        {% empty %}
+        <tr>
+            <td colspan="3">Выберите программу или подходящих сотрудников не найдено.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
