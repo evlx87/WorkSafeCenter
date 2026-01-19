@@ -12,6 +12,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         'position',
         'department',
         'is_executive',
+        'is_pedagogical',
         'on_parental_leave',
         'is_safety_committee_member',
         'is_active')
@@ -22,6 +23,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         'department__name')
     list_filter = (
         'is_active',
+        'is_pedagogical',
         'on_parental_leave',
         'is_executive',
         'is_safety_committee_member',
