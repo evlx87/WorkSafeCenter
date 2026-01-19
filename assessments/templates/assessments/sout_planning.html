@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="section-header">
+    <h2>📋 Планирование СОУТ</h2>
+    <p>Рабочие места, требующие проведения оценки</p>
+</div>
+<div style="margin-bottom: 20px;">
+    <a href="{% url 'assessments:sout_export_excel' %}" class="btn btn-success">
+        📊 Скачать план в Excel
+    </a>
+</div>
+<table>
+    <thead>
+        <tr>
+            <th>№ РМ</th>
+            <th>Подразделение / Должность</th>
+            <th>Статус</th>
+            <th>Срок проведения</th>
+            <th>Действие</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for wp in planning_workplaces %}
+        <tr {% if wp.sout and wp.sout.next_assessment_date < today %}style="background-color: #ffeaea;"{% endif %}>
+            <td>{{ wp.number }}</td>
+            <td>{{ wp.site.name }} / {{ wp.position.name }}</td>
+            <td>
+                {% if not wp.sout %}
+                    <span class="badge" style="background-color: #e74c3c; color: white;">Не проводилась</span>
+                {% elif wp.sout.next_assessment_date < today %}
+                    <span class="badge" style="background-color: #c0392b; color: white;">Просрочена</span>
+                {% else %}
+                    <span class="badge" style="background-color: #f39c12; color: white;">Срок подходит</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if wp.sout %}
+                    {{ wp.sout.next_assessment_date|date:"d.m.Y" }}
+                {% else %}
+                    <strong>Требуется первичная</strong>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{% url 'assessments:sout_manage' wp.pk %}" class="button-small">📝 Внести данные</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5" style="text-align: center;">Все рабочие места имеют актуальную СОУТ.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -1,5 +1,7 @@
 from django.db import models
-
+from django.db import models
+from django.utils import timezone
+from datetime import timedelta
 from organization.models import Position, Site
 
 
@@ -26,6 +28,24 @@ class Workplace(models.Model):
 
     def __str__(self):
         return f"РМ №{self.number} ({self.position.name})"
+
+    def get_current_sout(self):
+        """Возвращает последнюю проведенную оценку."""
+        return self.sout_assessments.order_by('-assessment_date').first()
+
+    @property
+    def sout_status(self):
+        """Определяет статус СОУТ для рабочего места."""
+        current = self.get_current_sout()
+        if not current:
+            return 'not_conducted'  # Не проводилась
+
+        today = timezone.now().date()
+        if current.next_assessment_date <= today:
+            return 'expired'  # Просрочена
+        elif current.next_assessment_date <= today + timedelta(days=90):
+            return 'warning'  # Срок подходит (за 3 месяца)
+        return 'valid'  # Актуальна
 
 
 class SOUTAssessment(models.Model):
@@ -57,6 +77,13 @@ class SOUTAssessment(models.Model):
         upload_to='sout/reports/',
         blank=True,
         null=True)
+
+    def save(self, *args, **kwargs):
+        # Автоматический расчет следующей даты (обычно через 5 лет),
+        # если она не введена вручную
+        if not self.next_assessment_date and self.assessment_date:
+            self.next_assessment_date = self.assessment_date + timedelta(days=5 * 365)
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Результат СОУТ"

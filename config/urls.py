@@ -32,4 +32,5 @@ urlpatterns = [
     path('incidents/', include('incidents.urls', namespace='incidents')),
     path('notifications/', include('notifications.urls', namespace='notifications')),
     path('reports/', include('reports.urls', namespace='reports')),
+    path('assessments/', include('assessments.urls', namespace='assessments')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
