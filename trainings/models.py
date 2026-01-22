@@ -103,10 +103,10 @@ class Training(models.Model):
     training_date = models.DateField(
         verbose_name="Дата прохождения"
     )
-    document_scan = models.FileField(
+    document_scan = models.ImageField(
         upload_to='training_documents/',
-        validators=[validate_pdf_extension],
-        verbose_name="Скан документа (.pdf)",
+        # validators=[validate_pdf_extension],
+        verbose_name="Скан документа (.jpg, .png)",
         null=True,
         blank=True
     )
