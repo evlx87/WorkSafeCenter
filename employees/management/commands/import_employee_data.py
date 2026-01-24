@@ -1,117 +1,66 @@
 import openpyxl
-from datetime import datetime
 from django.core.management.base import BaseCommand
-from django.db import transaction
+
 from employees.models import Employee
-from organization.models import Department, Position, OrganizationSafetyInfo
+from trainings.models import TrainingProgram, Training
 
 
 class Command(BaseCommand):
-    help = 'Импортирует данные об организации и сотрудниках из Excel файла'
+    help = 'Импортирует данные из расширенного Excel шаблона'
 
     def add_arguments(self, parser):
-        parser.add_argument('file_path', type=str, help='Путь к Excel файлу')
+        parser.add_argument('file_path', type=str, help='Путь к файлу Excel')
 
-    @transaction.atomic
     def handle(self, *args, **options):
-        file_path = options['file_path']
-
+        path = options['file_path']
         try:
-            wb = openpyxl.load_workbook(file_path, data_only=True)
+            wb = openpyxl.load_workbook(path)
         except Exception as e:
-            self.stderr.write(
-                self.style.ERROR(
-                    f"Не удалось открыть файл: {e}"))
+            self.stderr.write(f"Ошибка открытия файла: {e}")
             return
 
-        # --- 1. Импорт данных организации ---
-        if "Организация" in wb.sheetnames:
-            self.stdout.write("Обработка данных организации...")
-            ws_org = wb["Организация"]
-            # Данные начинаются со 2-й строки
-            rows = list(ws_org.iter_rows(min_row=2, values_only=True))
-            if rows and any(rows[0]):
-                org_data = rows[0]
-
-                # В вашей модели OrganizationSafetyInfo нет поля КПП,
-                # поэтому берем: Название(0), ИНН(1), ОГРН(3), Адрес(4), Телефон(5)
-                # [cite: 3530, 3582]
-                org_info, created = OrganizationSafetyInfo.objects.update_or_create(
-                    pk=1,  # Обычно в системе одна запись с настройками организации
-                    defaults={
-                        'name_full': str(org_data[0]) if org_data[0] else '',
-                        'inn': str(org_data[1]) if org_data[1] else '',
-                        'ogrn': str(org_data[3]) if org_data[3] else '',
-                        'address_legal': str(org_data[4]) if org_data[4] else '',
-                        'contact_phone': str(org_data[5]) if org_data[5] else '',
-                    }
-                )
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"Данные организации {
-                            'созданы' if created else 'обновлены'}."))
-
-        # --- 2. Импорт сотрудников ---
-        if "Сотрудники" in wb.sheetnames:
-            self.stdout.write("Импорт сотрудников...")
-            ws_emp = wb["Сотрудники"]
-            emp_count = 0
-
-            # Начинаем со второй строки (пропускаем заголовки)
-            for row in ws_emp.iter_rows(min_row=2, values_only=True):
-                # Если ячейка с фамилией пустая — пропускаем строку
+        if "Программы обучения" in wb.sheetnames:
+            self.stdout.write("Импорт программ обучения...")
+            ws = wb["Программы обучения"]
+            for row in ws.iter_rows(min_row=2, values_only=True):
                 if not row[0]:
                     continue
 
-                last_name, first_name, middle_name, pos_name, dept_name, b_date, h_date = row[:7]
+                TrainingProgram.objects.get_or_create(
+                    name=row[0], defaults={
+                        'training_type': row[1] if row[1] else 'OTHER', 'hours': int(
+                            row[2]) if row[2] else 0, 'frequency_months': int(
+                            row[3]) if row[3] else 0, 'is_mandatory': True if str(
+                            row[4]).lower() in [
+                            'да', 'yes', '1'] else False})
 
-                # 1. Получаем или создаем Подразделение
-                dept = None
-                if dept_name:
-                    dept, _ = Department.objects.get_or_create(name=dept_name.strip())
+        if "Обучение сотрудников" in wb.sheetnames:
+            self.stdout.write("Импорт записей об обучении...")
+            ws = wb["Обучение сотрудников"]
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                fio, prog_name, t_date, prot_num, cert_num = row
+                if not fio or not prog_name:
+                    continue
 
-                # 2. Получаем или создаем Должность, ПРИВЯЗАННУЮ к подразделению
-                pos = None
-                if pos_name:
-                    # Важно: добавляем department=dept в поиск и создание
-                    pos, _ = Position.objects.get_or_create(
-                        name=pos_name.strip(),
-                        department=dept  # Теперь должность привяжется к отделу
-                    )
+                parts = str(fio).split()
+                emp = Employee.objects.filter(
+                    last_name=parts[0],
+                    first_name=parts[1] if len(parts) > 1 else ""
+                ).first()
 
-                # Вспомогательная функция для дат
-                def parse_date(d):
-                    if isinstance(d, datetime):
-                        return d.date()
-                    if d:
-                        try:
-                            return datetime.strptime(
-                                str(d).split()[0], '%Y-%m-%d').date()
-                        except BaseException:
-                            return None
-                    return None
+                prog = TrainingProgram.objects.filter(name=prog_name).first()
 
-                # 3. Создание или обновление сотрудника
-                # [cite: 3472]
-                employee, created = Employee.objects.update_or_create(
-                    last_name=str(last_name).strip(),
-                    first_name=str(first_name).strip(),
-                    middle_name=str(middle_name or '').strip(),
-                    defaults={
-                        'department': dept,
-                        'position': pos,
-                        'birth_date': parse_date(b_date),
-                        'hire_date': parse_date(h_date),
-                        'is_active': True
-                    }
-                )
-                emp_count += 1
+                if emp and prog:
+                    Training.objects.get_or_create(
+                        employee=emp,
+                        program=prog,
+                        training_date=t_date,
+                        defaults={
+                            'protocol_number': str(prot_num) if prot_num else '',
+                            'certificate_number': str(cert_num) if cert_num else ''})
+                else:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f"Не найден сотрудник или программа для: {fio} / {prog_name}"))
 
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"Успешно импортировано сотрудников: {emp_count}"))
-        else:
-            self.stderr.write(self.style.WARNING(
-                "Лист 'Сотрудники' не найден в файле."))
-
-        self.stdout.write(self.style.SUCCESS("Импорт полностью завершен!"))
+        self.stdout.write(self.style.SUCCESS("Импорт успешно завершен!"))
