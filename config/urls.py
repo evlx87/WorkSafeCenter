@@ -24,6 +24,7 @@ from .views import index
 urlpatterns = [
     path('', index, name='index'),
     path('admin/', admin.site.urls),
+    path('accounts/', include(('accounts.urls', 'accounts'), namespace='accounts')),
     path('employees/', include('employees.urls', namespace='employees')),
     path('trainings/', include('trainings.urls', namespace='trainings')),
     path('organization/', include('organization.urls', namespace='organization')),

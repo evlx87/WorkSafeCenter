@@ -26,11 +26,27 @@
         <li><a href="{% url 'medical_checks:medical_check_list' %}">Медосмотры</a></li>
         <li><a href="{% url 'incidents:incident_list' %}">Инциденты</a></li>
         <li><a href="{% url 'reports:reports_index' %}">Отчеты</a></li>
-
       </ul>
     </nav>
     <div class="user-actions">
-        <a href="{% url 'notifications:notification_list' %}" class="notification-link">🔔</a>
+        {% if user.is_authenticated %}
+            <span class="user-info" style="margin-right: 15px; color: #666;">
+                {{ user.username }}
+            </span>
+
+            <a href="{% url 'notifications:notification_list' %}" class="notification-link" title="Уведомления">🔔</a>
+
+            <form action="{% url 'accounts:logout' %}" method="post" style="display: inline; margin-left: 10px;">
+                {% csrf_token %}
+                <button type="submit" class="logout-btn" style="background: none; border: 1px solid #ccc; cursor: pointer; border-radius: 4px; padding: 2px 8px;">
+                    Выйти
+                </button>
+            </form>
+        {% else %}
+            <a href="{% url 'accounts:login' %}" class="login-link" style="text-decoration: none; color: #007bff; font-weight: 500;">
+                Войти
+            </a>
+        {% endif %}
     </div>
   </div>
 </header>
