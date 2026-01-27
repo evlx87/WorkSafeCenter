@@ -24,6 +24,7 @@ class UserProfileInline(admin.StackedInline):
 
 class UserAdmin(BaseUserAdmin):
     inlines = (UserProfileInline,)
+    change_form_template = 'admin/accounts/userprofile/change_form.html'
 
     # Добавляем кастомный URL для обработки генерации ключей
     def get_urls(self):
@@ -40,9 +41,7 @@ class UserAdmin(BaseUserAdmin):
         try:
             # Вызываем вашу команду generate_keys
             call_command('generate_keys', user.username)
-            messages.success(
-                request, f"Ключи для {
-                    user.username} успешно созданы. Закрытый ключ сохранен в корне проекта.")
+            messages.success(request, f"Ключи для {user.username} успешно созданы.")
         except Exception as e:
             messages.error(request, f"Ошибка при генерации: {e}")
 
@@ -52,3 +51,4 @@ class UserAdmin(BaseUserAdmin):
 # Перерегистрируем стандартного пользователя на нашего кастомного
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
+print("--- АДМИНКА ЗАГРУЖЕНА УСПЕШНО ---")

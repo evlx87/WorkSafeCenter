@@ -1,0 +1,13 @@
+{% extends "admin/change_form.html" %}
+
+{% block content %}
+    {# Добавляем кнопку ПЕРЕД основным контентом (сверху), чтобы точно проверить её наличие #}
+    <div style="padding: 10px; border: 1px solid #ddd; margin-bottom: 20px; border-radius: 4px;">
+        <h2 style="margin-top: 0;">Управление ключами</h2>
+        <a href="{% url 'admin:user-generate-keys' object_id %}" class="button" style="background: #417690; color: white; padding: 10px 15px; border-radius: 4px; text-decoration: none; display: inline-block;">
+            🔑 Сгенерировать пару ключей для этого пользователя
+        </a>
+    </div>
+
+    {{ block.super }}
+{% endblock %}
