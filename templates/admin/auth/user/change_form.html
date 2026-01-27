@@ -1,0 +1,9 @@
+{% extends "admin/change_form.html" %}
+{% block submit_row %}
+    {{ block.super }}
+    <div class="submit-row">
+        <a href="generate-keys/" class="button" style="background: #417690; color: white; padding: 10px 15px; border-radius: 4px; text-decoration: none; margin-left: 5px; display: inline-block;">
+            🔑 Сгенерировать пару ключей
+        </a>
+    </div>
+{% endblock %}

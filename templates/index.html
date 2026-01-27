@@ -5,6 +5,16 @@ WorkSafeCenter - Панель управления
 {% endblock %}
 
 {% block content %}
+{% if user.is_superuser %}
+    <div class="admin-panel mt-4">
+        <a href="{% url 'admin:auth_user_add' %}" class="btn btn-warning">
+            👤 Добавить нового пользователя
+        </a>
+        <a href="{% url 'admin:auth_user_changelist' %}" class="btn btn-secondary">
+            ⚙️ Управление доступом
+        </a>
+    </div>
+{% endif %}
 <section>
     <h2>Информационная панель</h2>
     <p>Ключевые показатели системы охраны труда на сегодня.</p>
