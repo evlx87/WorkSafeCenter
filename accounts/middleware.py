@@ -23,8 +23,8 @@ class LoginRequiredMiddleware:
         # 2. Список исключений (админка, статика и сама страница логина)
         if (request.user.is_authenticated or
             request.path == login_url or
-            request.path.startswith('/admin/') or
-                request.path.startswith('/static/')):
+            # request.path.startswith('/admin/') or
+            request.path.startswith('/static/')):
             return self.get_response(request)
 
         # 3. Редирект всех остальных на логин
