@@ -51,4 +51,3 @@ class UserAdmin(BaseUserAdmin):
 # Перерегистрируем стандартного пользователя на нашего кастомного
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
-print("--- АДМИНКА ЗАГРУЖЕНА УСПЕШНО ---")

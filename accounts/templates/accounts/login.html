@@ -37,11 +37,10 @@
             </div>
 
             <div class="form-group">
-                <label for="{{ form.certificate.id_for_label }}">Закрытый ключ (.pem)</label>
+                <label for="{{ form.certificate.id_for_label }}">Ключ</label>
                 <div class="file-input-wrapper">
                     {{ form.certificate }}
                 </div>
-                <small class="help-text">Файл <code>{{ user.username }}_private.pem</code></small>
             </div>
 
             <button type="submit" class="btn btn-primary btn-block">Войти</button>
