@@ -1,5 +1,5 @@
 from django.db import models
-
+from encrypted_model_fields.fields import EncryptedCharField, EncryptedEmailField
 
 # Create your models here.
 class Employee(models.Model):
@@ -41,13 +41,12 @@ class Employee(models.Model):
         null=True,
         blank=True,
         verbose_name="Дата последнего инструктажа по охране труда")
-    email = models.EmailField(
+    email = EncryptedEmailField(
         unique=True,
         blank=True,
         null=True,
-        verbose_name="Email"
-    )
-    phone = models.CharField(
+        verbose_name="Email")
+    phone = EncryptedCharField(
         max_length=20,
         blank=True,
         verbose_name="Телефон")
@@ -61,51 +60,41 @@ class Employee(models.Model):
     )
     on_parental_leave = models.BooleanField(
         default=False,
-        verbose_name="В декретном отпуске"
-    )
+        verbose_name="В декретном отпуске")
     is_safety_specialist = models.BooleanField(
         default=False,
-        verbose_name="Специалист по охране труда"
-    )
+        verbose_name="Специалист по охране труда")
     is_safety_committee_member = models.BooleanField(
         default=False,
-        verbose_name="Член комиссии по охране труда"
-    )
+        verbose_name="Член комиссии по охране труда")
     is_safety_committee_chair = models.BooleanField(
         default=False,
-        verbose_name="Председатель комиссии по охране труда"
-    )
+        verbose_name="Председатель комиссии по охране труда")
     is_acting_director = models.BooleanField(
         default=False,
-        verbose_name="И.о. директора"
-    )
+        verbose_name="И.о. директора")
     termination_date = models.DateField(
         null=True,
         blank=True,
-        verbose_name="Дата увольнения"
-    )
+        verbose_name="Дата увольнения")
     termination_order_number = models.CharField(
         max_length=50,
         blank=True,
-        verbose_name="Номер приказа об увольнении"
-    )
+        verbose_name="Номер приказа об увольнении")
     is_pedagogical_staff = models.BooleanField(
         default=False,
         verbose_name="Педагогический работник",
-        help_text="Требуется для назначения обучения по Первой помощи."
-    )
+        help_text="Требуется для назначения обучения по Первой помощи.")
     exempt_from_safety_instruction = models.BooleanField(
         default=False,
         verbose_name="Освобожден от первичного инструктажа",
         help_text="Если отмечено, сотруднику требуется только Вводный инструктаж.")
     is_pedagogical = models.BooleanField(
         "Педагогический работник",
-        default=False
-    )
+        default=False)
     is_executive = models.BooleanField(
         "Руководитель",
-        default=False
-    )
+        default=False)
 
     def save(self, *args, **kwargs):
         if self.termination_date:

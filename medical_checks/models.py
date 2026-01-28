@@ -1,4 +1,5 @@
 from django.db import models
+from encrypted_model_fields.fields import EncryptedTextField
 
 from employees.models import Employee
 
@@ -8,7 +9,7 @@ class MedicalCheck(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, verbose_name="Работник")
     check_date = models.DateField(verbose_name="Дата осмотра")
     next_check_date = models.DateField(null=True, blank=True, verbose_name="Дата следующего осмотра")
-    result = models.TextField(blank=True, verbose_name="Результаты осмотра")
+    result = EncryptedTextField(blank=True, verbose_name="Результаты осмотра")
     is_valid = models.BooleanField(default=True, verbose_name="Действителен")
 
     class Meta:

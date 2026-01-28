@@ -54,7 +54,7 @@ INSTALLED_APPS = [
     'trainings.apps.TrainingsConfig',
     'assessments.apps.AssessmentsConfig',
 
-    'django_cryptography',
+    'encrypted_model_fields',
 ]
 
 MIDDLEWARE = [
@@ -160,3 +160,5 @@ AUTHENTICATION_BACKENDS = [
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY')
