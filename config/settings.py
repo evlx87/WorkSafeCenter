@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     'organization.apps.OrganizationConfig',
     'trainings.apps.TrainingsConfig',
     'assessments.apps.AssessmentsConfig',
+
+    'django_cryptography',
 ]
 
 MIDDLEWARE = [
