@@ -40,6 +40,15 @@ class TrainingForm(forms.ModelForm):
         label="Скан документа (.pdf)"
     )
 
+    def clean_document_scan(self):
+        file = self.cleaned_data.get('document_scan')
+        if file:
+            # Проверка размера файла (макс. 10 МБ)
+            if file.size > 10 * 1024 * 1024:
+                raise forms.ValidationError(
+                    'Размер файла не должен превышать 10 МБ')
+        return file
+
     class Meta:
         model = Training
         fields = ['program', 'employee', 'training_date', 'document_scan']

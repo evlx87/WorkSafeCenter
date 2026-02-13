@@ -4,7 +4,7 @@ from django.utils import timezone
 
 from documents.models import Document
 from employees.models import Employee
-from .validators import validate_pdf_extension
+from .validators import validate_pdf_or_image
 
 
 # Create your models here.
@@ -103,10 +103,10 @@ class Training(models.Model):
     training_date = models.DateField(
         verbose_name="Дата прохождения"
     )
-    document_scan = models.ImageField(
+    document_scan = models.FileField(
         upload_to='training_documents/',
-        # validators=[validate_pdf_extension],
-        verbose_name="Скан документа (.jpg, .png)",
+        validators=[validate_pdf_or_image],
+        verbose_name="Скан документа (PDF/JPG/PNG)",
         null=True,
         blank=True
     )
