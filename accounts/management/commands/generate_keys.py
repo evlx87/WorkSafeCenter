@@ -1,26 +1,27 @@
 import os
+import secrets
 
 from django.conf import settings
-from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth.models import User
+from django.core.management.base import BaseCommand, CommandError
+
 from accounts.models import UserProfile
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
 
 
 class Command(BaseCommand):
-    help = 'Генерирует пару ключей (RSA) для авторизации пользователя'
+    help = 'Генерирует файл-ключ для двухфакторной аутентификации пользователя'
 
     def add_arguments(self, parser):
         parser.add_argument(
             'username',
             type=str,
-            help='Имя пользователя для ключей')
+            help='Имя пользователя для ключей'
+        )
 
     def handle(self, *args, **options):
         username = options['username']
 
-        # Проверяем существование пользователя перед генерацией
+        # Проверяем существование пользователя
         try:
             user = User.objects.get(username=username)
         except User.DoesNotExist:
@@ -32,49 +33,29 @@ class Command(BaseCommand):
             os.makedirs(crt_dir)
 
         try:
-            # 1. Генерируем ключи
-            private_key = rsa.generate_private_key(
-                public_exponent=65537,
-                key_size=2048
-            )
+            # 1. Генерируем уникальный токен
+            token = secrets.token_urlsafe(64)
 
-            # Формируем байты ключей
-            priv_bytes = private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.NoEncryption()
-            )
+            # 2. Сохраняем файл-ключ
+            key_path = os.path.join(
+                crt_dir, f"{username}.key")
+            with open(key_path, "w", encoding='utf-8') as f:
+                f.write(f"# Файл-ключ для входа в WorkSafeCenter\n")
+                f.write(f"# НЕ ПЕРЕДАВАЙТЕ ЭТОТ ФАЙЛ ДРУГИМ ЛИЦАМ!\n")
+                f.write(f"# Username: {username}\n")
+                f.write(f"KEY={token}\n")
 
-            public_key = private_key.public_key()
-            pub_bytes = public_key.public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo
-            )
-
-            # 2. Сохраняем файлы на диск (как и было)
-            priv_path = os.path.join(crt_dir, f"{username}_private.pem")
-            pub_path = os.path.join(crt_dir, f"{username}_public.pem")
-
-            with open(priv_path, "wb") as f:
-                f.write(priv_bytes)
-
-            with open(pub_path, "wb") as f:
-                f.write(pub_bytes)
-
-            # 3. Привязываем публичный ключ к профилю пользователя
-            # Используем update_or_create на случай, если ключ обновляется
+            # 3. Сохраняем токен в БД
             profile, created = UserProfile.objects.update_or_create(
                 user=user,
-                defaults={'public_key': pub_bytes.decode('utf-8')}
+                defaults={'auth_token_hash': token}
             )
 
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'Успешно: Ключи для "{username}" созданы и привязаны к профилю.'))
-            self.stdout.write(f'Закрытый ключ: {priv_path}')
-            self.stdout.write(
-                f'Публичный ключ сохранен в БД и в файл: {pub_path}')
+            self.stdout.write(self.style.SUCCESS(
+                f'Успешно: Файл-ключ для "{username}" создан.'))
+            self.stdout.write(f'Файл-ключ: {key_path}')
+            self.stdout.write(self.style.WARNING(
+                'ВАЖНО: Передайте файл пользователю безопасным способом!'))
 
         except Exception as e:
-            raise CommandError(
-                f'Ошибка при генерации или сохранении ключей: {e}')
+            raise CommandError(f'Ошибка при генерации файла-ключа: {e}')
