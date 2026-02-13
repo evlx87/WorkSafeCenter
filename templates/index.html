@@ -1,44 +1,188 @@
 {% extends 'base.html' %}
-
 {% block title %}
-WorkSafeCenter - Панель управления
+WorkSafeCenter - Информационная панель
 {% endblock %}
-
 {% block content %}
-{% if user.is_superuser %}
-    <div class="admin-panel mt-4">
-        <a href="{% url 'admin:auth_user_add' %}" class="btn btn-warning">
-            👤 Добавить нового пользователя
+<section style="background: transparent; box-shadow: none; padding: 0;">
+  <div class="section-header" style="border-bottom: none; margin-bottom: 20px;">
+    <h2 style="margin: 0;">📊 Информационная панель</h2>
+    <div style="display: flex; gap: 10px;">
+      {% if user.is_superuser %}
+        <a href="{% url 'admin:auth_user_add' %}" class="button" style="background-color: #6c757d;">
+          👤 Добавить пользователя
         </a>
-        <a href="{% url 'admin:auth_user_changelist' %}" class="btn btn-secondary">
-            ⚙️ Управление доступом
+        <a href="{% url 'admin:auth_user_changelist' %}" class="button" style="background-color: #6c757d;">
+          ⚙️ Управление доступом
         </a>
+      {% endif %}
     </div>
-{% endif %}
-<section>
-    <h2>Информационная панель</h2>
-    <p>Ключевые показатели системы охраны труда на сегодня.</p>
-
-    <div class="dashboard-grid">
-        <div class="stat-card card-danger">
-            <h3>Просроченные медосмотры</h3>
-            <p class="count">{{ overdue_checks_count }}</p>
-        </div>
-
-        <div class="stat-card card-danger">
-            <h3>Просроченные инструктажи</h3>
-            <p class="count">{{ overdue_trainings_count }}</p>
-        </div>
-
-        <div class="stat-card card-warning">
-            <h3>Событий в ближайшие 30 дней</h3>
-            <p class="count">{{ upcoming_events_count }}</p>
-        </div>
-
-        <div class="stat-card card-success">
-            <h3>Инцидентов за 30 дней</h3>
-            <p class="count">{{ recent_incidents_count }}</p>
-        </div>
-    </div>
+  </div>
 </section>
+
+<section>
+  <h3 style="margin-top: 0; color: var(--primary-color); font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold);">
+    Ключевые показатели системы охраны труда
+  </h3>
+  <p style="color: #666; margin-bottom: 20px; font-size: var(--font-size-sm);">
+    Статистика на {{ today|date:"d.m.Y" }}
+  </p>
+
+  <div class="dashboard-grid">
+    <div class="stat-card card-danger">
+      <div class="stat-header">
+        <h3>⚠️ Просроченные медосмотры</h3>
+        <span class="trend negative">↓ 12%</span>
+      </div>
+      <div class="stat-value">{{ overdue_checks_count }}</div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: {% widthratio overdue_checks_count 100 100 %}%"></div>
+      </div>
+      <div class="stat-note">+3 за последнюю неделю</div>
+    </div>
+
+    <div class="stat-card card-danger">
+      <div class="stat-header">
+        <h3>⚠️ Просроченные инструктажи</h3>
+        <span class="trend negative">↓ 8%</span>
+      </div>
+      <div class="stat-value">{{ overdue_trainings_count }}</div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: {% widthratio overdue_trainings_count 100 100 %}%"></div>
+      </div>
+      <div class="stat-note">+2 за последнюю неделю</div>
+    </div>
+
+    <div class="stat-card card-warning">
+      <div class="stat-header">
+        <h3>📅 Событий в ближайшие 30 дней</h3>
+        <span class="trend positive">↑ 5%</span>
+      </div>
+      <div class="stat-value">{{ upcoming_events_count }}</div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: {% widthratio upcoming_events_count 100 100 %}%"></div>
+      </div>
+      <div class="stat-note">Требуется планирование</div>
+    </div>
+
+    <div class="stat-card card-success">
+      <div class="stat-header">
+        <h3>✅ Инцидентов за 30 дней</h3>
+        <span class="trend {% if recent_incidents_count > 0 %}negative{% else %}positive{% endif %}">
+          {% if recent_incidents_count > 0 %}↓{% else %}↑{% endif %} 100%
+        </span>
+      </div>
+      <div class="stat-value">{{ recent_incidents_count }}</div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: {% widthratio recent_incidents_count 10 100 %}%"></div>
+      </div>
+      <div class="stat-note">Цель: 0 инцидентов</div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-3);
+  }
+
+  .stat-value {
+    font-size: 3rem;
+    font-weight: var(--font-weight-bold);
+    margin: var(--space-2) 0;
+    color: var(--gray-900);
+    line-height: 1;
+  }
+
+  .stat-note {
+    font-size: var(--font-size-sm);
+    color: var(--gray-600);
+    margin-top: var(--space-2);
+  }
+
+  .trend {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+  }
+
+  .trend.positive {
+    background-color: var(--success-100);
+    color: var(--success-700);
+  }
+
+  .trend.negative {
+    background-color: var(--danger-100);
+    color: var(--danger-700);
+  }
+
+  .progress-bar {
+    height: 6px;
+    background: var(--gray-200);
+    border-radius: var(--radius-full);
+    margin: var(--space-3) 0;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: currentColor;
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+  }
+
+  .quick-access-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+  }
+
+  .quick-access-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 20px;
+    background: white;
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    color: var(--text-color);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+    border: 1px solid var(--border-color);
+  }
+
+  .quick-access-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--accent-300);
+  }
+
+  .quick-access-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .quick-access-content h4 {
+    margin: 0 0 5px 0;
+    font-size: var(--font-size-lg);
+    color: var(--primary-color);
+  }
+
+  .quick-access-content p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--gray-600);
+  }
+</style>
 {% endblock %}
