@@ -15,38 +15,22 @@
     <a href="{% url 'index' %}" class="logo">
       WorkSafeCenter
     </a>
-    <nav class="main-nav">
-      <ul>
-        <li><a href="{% url 'employees:employee_list' %}">Сотрудники</a></li>
-        <li><a href="{% url 'organization:organization_info' %}">Организация</a></li>
-        <li><a href="#">СОУТ</a></li>
-        <li><a href="#">Проф.риски</a></li>
-        <li><a href="{% url 'trainings:training_program_list' %}">Обучение</a></li>
-        <li><a href="{% url 'documents:documents_list' %}">Документы</a></li>
-        <li><a href="{% url 'medical_checks:medical_check_list' %}">Медосмотры</a></li>
-        <li><a href="{% url 'incidents:incident_list' %}">Инциденты</a></li>
-        <li><a href="{% url 'reports:reports_index' %}">Отчеты</a></li>
-      </ul>
-    </nav>
+
+    <!-- Подключаем меню -->
+    {% include 'includes/main_menu.html' %}
+
+    <!-- Пользовательские действия -->
     <div class="user-actions">
-        {% if user.is_authenticated %}
-            <span class="user-info" style="margin-right: 15px; color: #666;">
-                {{ user.username }}
-            </span>
-
-            <a href="{% url 'notifications:notification_list' %}" class="notification-link" title="Уведомления">🔔</a>
-
-            <form action="{% url 'accounts:logout' %}" method="post" style="display: inline; margin-left: 10px;">
-                {% csrf_token %}
-                <button type="submit" class="logout-btn" style="background: none; border: 1px solid #ccc; cursor: pointer; border-radius: 4px; padding: 2px 8px;">
-                    Выйти
-                </button>
-            </form>
-        {% else %}
-            <a href="{% url 'accounts:login' %}" class="login-link" style="text-decoration: none; color: #007bff; font-weight: 500;">
-                Войти
-            </a>
-        {% endif %}
+      {% if user.is_authenticated %}
+        <span class="user-info">{{ user.username }}</span>
+        <a href="{% url 'notifications:notification_list' %}" class="notification-link" title="Уведомления">🔔</a>
+        <form action="{% url 'accounts:logout' %}" method="post" class="logout-form">
+          {% csrf_token %}
+          <button type="submit" class="logout-btn">Выйти</button>
+        </form>
+      {% else %}
+        <a href="{% url 'accounts:login' %}" class="login-link">Войти</a>
+      {% endif %}
     </div>
   </div>
 </header>
@@ -66,5 +50,37 @@
 <footer class="main-footer">
     <p>&copy; {% now "Y" %} WorkSafeCenter. Система управления охраной труда.</p>
 </footer>
+<script>
+// Бургер-меню для мобильных устройств
+document.addEventListener('DOMContentLoaded', function() {
+  const menuToggle = document.querySelector('.mobile-menu-toggle');
+  const navMenu = document.querySelector('.main-nav');
+
+  if (menuToggle && navMenu) {
+    menuToggle.addEventListener('click', function() {
+      navMenu.classList.toggle('active');
+      this.classList.toggle('active');
+    });
+
+    // Закрытие меню при клике на ссылку
+    navMenu.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        navMenu.classList.remove('active');
+        menuToggle.classList.remove('active');
+      });
+    });
+
+    // Закрытие меню при клике вне его
+    document.addEventListener('click', function(event) {
+      if (!navMenu.contains(event.target) &&
+          !menuToggle.contains(event.target) &&
+          navMenu.classList.contains('active')) {
+        navMenu.classList.remove('active');
+        menuToggle.classList.remove('active');
+      }
+    });
+  }
+});
+</script>
 </body>
 </html>

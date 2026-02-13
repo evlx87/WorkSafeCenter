@@ -221,7 +221,83 @@ h6 { font-size: var(--font-size-base); }
   display: flex;
   gap: 20px;
 }
+/* ========================================
+   ДВУХСТРОЧНОЕ МЕНЮ
+   ======================================== */
 
+.main-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.nav-row {
+  width: 100%;
+}
+
+.nav-row ul {
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Мобильное меню - две строки */
+@media (max-width: 768px) {
+  .main-nav {
+    position: fixed;
+    top: 60px;
+    left: -100%;
+    flex-direction: column;
+    background-color: var(--primary-color);
+    width: 100%;
+    height: calc(100vh - 60px);
+    padding: var(--space-4);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: var(--z-index-modal);
+    transition: left 0.3s ease;
+  }
+
+  .main-nav.active {
+    left: 0;
+  }
+
+  .nav-row ul {
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: 0;
+  }
+
+  .nav-row ul li {
+    width: 100%;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .nav-row ul li:last-child {
+    border-bottom: none;
+  }
+
+  .nav-row:first-child {
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+  }
+
+  .nav-row:last-child {
+    padding-top: var(--space-4);
+  }
+}
+
+/* Десктоп - две строки рядом */
+@media (min-width: 769px) {
+  .nav-row ul {
+    gap: var(--space-3);
+  }
+
+  .nav-row:first-child {
+    margin-bottom: var(--space-1);
+  }
+}
 .main-nav a {
   color: #ecf0f1;
   text-decoration: none;
@@ -898,5 +974,247 @@ textarea:focus {
   th, td {
     border: 1px solid #000;
     padding: 8px;
+  }
+}
+
+/* ========================================
+   БУРГЕР-МЕНЮ И МОБИЛЬНАЯ НАВИГАЦИЯ
+   ======================================== */
+
+.mobile-menu-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2);
+  z-index: var(--z-index-fixed);
+  margin-left: var(--space-3);
+}
+
+.mobile-menu-toggle span {
+  display: block;
+  width: 24px;
+  height: 3px;
+  background-color: white;
+  border-radius: var(--radius-sm);
+  transition: all 0.3s ease;
+}
+
+.mobile-menu-toggle.active span:nth-child(1) {
+  transform: rotate(45deg) translate(5px, 5px);
+}
+
+.mobile-menu-toggle.active span:nth-child(2) {
+  opacity: 0;
+}
+
+.mobile-menu-toggle.active span:nth-child(3) {
+  transform: rotate(-45deg) translate(5px, -5px);
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-toggle {
+    display: flex;
+  }
+
+  .main-nav {
+    display: none;
+  }
+
+  .main-nav.active {
+    display: flex;
+  }
+
+  .user-actions {
+    display: none;
+  }
+}
+
+@media (min-width: 769px) {
+  .main-nav {
+    display: flex !important;
+  }
+
+  .user-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+}
+
+/* Мобильное меню */
+.main-nav ul.mobile-active {
+  display: flex !important;
+}
+
+/* ========================================
+   МИКРОИНТЕРАКЦИИ И АНИМАЦИИ
+   ======================================== */
+
+/* Плавные переходы для всех интерактивных элементов */
+.button,
+button[type="submit"],
+.profile-card,
+table tr,
+.stat-card,
+.badge {
+  transition: all 0.2s ease;
+}
+
+/* Эффект при наведении на кнопки */
+.button:hover,
+button[type="submit"]:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.button:active,
+button[type="submit"]:active {
+  transform: translateY(0);
+}
+
+/* Эффект при наведении на карточки */
+.profile-card:hover,
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Эффект при наведении на строки таблицы */
+table tr:hover {
+  transform: translateX(5px);
+}
+
+/* Анимация появления уведомлений */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Плавное появление секций */
+section {
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   ДОПОЛНИТЕЛЬНЫЕ СТИЛИ ДЛЯ БАЗОВЫХ ЭЛЕМЕНТОВ
+   ======================================== */
+
+/* Улучшенные кнопки выхода и входа */
+.logout-btn {
+  background: none;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 8px;
+  color: #666;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+  background-color: #f8f9fa;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.login-link {
+  text-decoration: none;
+  color: #007bff;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.login-link:hover {
+  color: #0056b3;
+  text-decoration: underline;
+}
+
+.user-info {
+  margin-right: 15px;
+  color: #ecf0f1;
+  font-size: 0.9rem;
+}
+
+/* ========================================
+   АДАПТИВНЫЕ СТИЛИ ДЛЯ БУРГЕР-МЕНЮ
+   ======================================== */
+
+@media (max-width: 768px) {
+  .mobile-menu-toggle {
+    display: flex;
+  }
+
+  .main-nav ul {
+    position: fixed;
+    top: 60px;
+    left: -100%;
+    flex-direction: column;
+    background-color: var(--primary-color);
+    width: 100%;
+    height: calc(100vh - 60px);
+    padding: var(--space-4);
+    gap: var(--space-1);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: var(--z-index-modal);
+    transition: left 0.3s ease;
+  }
+
+  .main-nav ul.mobile-active {
+    left: 0;
+    display: flex;
+  }
+
+  .main-nav a {
+    display: block;
+    padding: var(--space-3);
+    font-size: 1.1rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .user-actions {
+    display: none;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .section-header a.button {
+    width: 100%;
+    margin-top: var(--space-2);
+  }
+}
+
+@media (min-width: 769px) {
+  .main-nav ul {
+    display: flex !important;
+  }
+
+  .user-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
   }
 }
