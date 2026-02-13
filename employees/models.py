@@ -36,11 +36,13 @@ class Employee(models.Model):
     medical_check_date = models.DateField(
         null=True,
         blank=True,
-        verbose_name="Дата последнего медосмотра")
+        verbose_name="Дата последнего медосмотра",
+        help_text = "⚠️ УСТАРЕЛО: данные хранятся в модуле Медосмотры")
     safety_training_date = models.DateField(
         null=True,
         blank=True,
-        verbose_name="Дата последнего инструктажа по охране труда")
+        verbose_name="Дата последнего инструктажа по охране труда",
+        help_text="⚠️ УСТАРЕЛО: данные хранятся в модуле Обучение")
     email = EncryptedEmailField(
         unique=True,
         blank=True,
@@ -81,7 +83,7 @@ class Employee(models.Model):
         max_length=50,
         blank=True,
         verbose_name="Номер приказа об увольнении")
-    is_pedagogical_staff = models.BooleanField(
+    is_pedagogical = models.BooleanField(
         default=False,
         verbose_name="Педагогический работник",
         help_text="Требуется для назначения обучения по Первой помощи.")
@@ -89,9 +91,6 @@ class Employee(models.Model):
         default=False,
         verbose_name="Освобожден от первичного инструктажа",
         help_text="Если отмечено, сотруднику требуется только Вводный инструктаж.")
-    is_pedagogical = models.BooleanField(
-        "Педагогический работник",
-        default=False)
     is_executive = models.BooleanField(
         "Руководитель",
         default=False)

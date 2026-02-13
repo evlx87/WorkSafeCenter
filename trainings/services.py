@@ -53,7 +53,7 @@ def check_employee_compliance(employee: Employee):
         required_programs_names.add('Охрана труда для руководителей')
 
     # В. Первая помощь (Руководители, Замы, Педагоги)
-    if employee.is_executive or employee.is_pedagogical_staff:
+    if employee.is_executive or employee.is_pedagogical:
         # Используем часть названия
         required_programs_names.add('Первая помощь')
 
