@@ -103,3 +103,14 @@ python manage.py generate_keys <username> # Генерация RSA-ключей 
 * [ ] Экспорт в PDF: Генерация готовых протоколов проверки знаний и журналов по ГОСТ.
 * [ ] Дашборд аналитики: Визуализация статистики травматизма и обучения с помощью Chart.js.
 * [ ] Ролевая модель: Тонкая настройка прав (Специалист ОТ, Инженер, Наблюдатель).
+
+
+
+
+# Инструкция для пользователя (в документации):
+# 1. Генерация ключей ЛОКАЛЬНО:
+openssl genrsa -out private_key.pem 2048
+openssl rsa -in private_key.pem -pubout -out public_key.pem
+
+# 2. Отправка публичного ключа в систему:
+python manage.py register_public_key username public_key.pem

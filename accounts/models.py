@@ -12,3 +12,11 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return self.user.username
+
+
+class LoginAudit(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    ip_address = models.GenericIPAddressField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    success = models.BooleanField()
+    user_agent = models.CharField(max_length=255, blank=True)
