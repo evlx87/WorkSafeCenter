@@ -16,7 +16,7 @@
       WorkSafeCenter
     </a>
 
-    <!-- Подключаем меню -->
+    <!-- Подключаем меню из отдельного файла -->
     {% include 'includes/main_menu.html' %}
 
     <!-- Пользовательские действия -->
@@ -80,6 +80,27 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+});
+</script>
+<script>
+// Подсветка активной страницы в меню
+document.addEventListener('DOMContentLoaded', function() {
+  const currentPath = window.location.pathname;
+  const navLinks = document.querySelectorAll('.main-nav a');
+
+  navLinks.forEach(link => {
+    const linkPath = new URL(link.href).pathname;
+
+    // Проверяем, совпадает ли путь (с учетом вложенности)
+    if (currentPath.startsWith(linkPath) && linkPath !== '/') {
+      link.classList.add('active');
+    }
+
+    // Особый случай для главной страницы
+    if (currentPath === '/' && linkPath === '/') {
+      link.classList.add('active');
+    }
+  });
 });
 </script>
 </body>

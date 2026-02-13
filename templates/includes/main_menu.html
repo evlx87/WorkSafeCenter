@@ -1,19 +1,30 @@
 <nav class="main-nav">
   <div class="nav-row">
     <ul>
+      <li class="nav-divider"></li>
       <li><a href="{% url 'employees:employee_list' %}">👥 Сотрудники</a></li>
+      <li class="nav-divider"></li>
       <li><a href="{% url 'organization:organization_info' %}">🏢 Организация</a></li>
+      <li class="nav-divider"></li>
       <li><a href="{% url 'assessments:workplace_list' %}">📋 СОУТ</a></li>
+      <li class="nav-divider"></li>
       <li><a href="#">⚠️ Проф.риски</a></li>
+      <li class="nav-divider"></li>
       <li><a href="{% url 'trainings:training_program_list' %}">🎓 Обучение</a></li>
+      <li class="nav-divider"></li>
     </ul>
   </div>
   <div class="nav-row">
     <ul>
+      <li class="nav-divider"></li>
       <li><a href="{% url 'documents:documents_list' %}">📄 Документы</a></li>
+      <li class="nav-divider"></li>
       <li><a href="{% url 'medical_checks:medical_check_list' %}">🩺 Медосмотры</a></li>
+      <li class="nav-divider"></li>
       <li><a href="{% url 'incidents:incident_list' %}">🚨 Инциденты</a></li>
+      <li class="nav-divider"></li>
       <li><a href="{% url 'reports:reports_index' %}">📊 Отчеты</a></li>
+      <li class="nav-divider"></li>
     </ul>
   </div>
 </nav>

@@ -180,8 +180,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 { font-size: var(--font-size-4xl); }
-h2 { font-size: var(--font-size-3xl); }
-h2 { margin-top: 0; color: var(--primary-color); }
+h2 { font-size: var(--font-size-3xl); margin-top: 0; color: var(--primary-color); }
 h3 { font-size: var(--font-size-2xl); }
 h4 { font-size: var(--font-size-xl); }
 h5 { font-size: var(--font-size-lg); }
@@ -214,13 +213,6 @@ h6 { font-size: var(--font-size-base); }
   text-decoration: none;
 }
 
-.main-nav ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  gap: 20px;
-}
 /* ========================================
    ДВУХСТРОЧНОЕ МЕНЮ
    ======================================== */
@@ -237,13 +229,157 @@ h6 { font-size: var(--font-size-base); }
 }
 
 .nav-row ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: var(--space-3);
   width: 100%;
   justify-content: center;
   flex-wrap: wrap;
 }
 
-/* Мобильное меню - две строки */
+.nav-row:first-child {
+  margin-bottom: var(--space-1);
+}
+
+/* ========================================
+   УЛУЧШЕННОЕ МЕНЮ С РАЗДЕЛИТЕЛЯМИ И ИКОНКАМИ
+   ======================================== */
+
+/* Стили для иконок в меню */
+.main-nav a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  color: #ecf0f1;
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: color 0.3s;
+}
+
+.main-nav a:hover {
+  color: var(--accent-color);
+}
+
+.main-nav a::before {
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+/* Разделители между секциями */
+.nav-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(236, 240, 241, 0.5);
+  margin: 0 15px;
+  align-self: center;
+}
+
+/* Стили для разделителей на мобильных */
 @media (max-width: 768px) {
+  .nav-divider {
+    display: none;
+  }
+
+  .nav-row ul li {
+    position: relative;
+    padding-left: 10px;
+  }
+
+  .nav-row ul li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--accent-300);
+    font-size: 1.2em;
+  }
+
+  /* Убираем точку перед разделителем */
+  .nav-row ul li.nav-divider::before {
+    content: '';
+  }
+}
+
+/* Анимация иконок при наведении */
+.main-nav a:hover::before {
+  transform: scale(1.1);
+  transition: transform 0.2s ease;
+}
+
+/* Подсветка активной страницы */
+.main-nav a.active,
+.main-nav a:active {
+  color: var(--accent-300);
+  font-weight: 600;
+}
+
+/* Эффект подчеркивания при наведении */
+@media (min-width: 769px) {
+  .main-nav ul li {
+    position: relative;
+  }
+
+  .main-nav a::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--accent-400);
+    transition: width 0.3s ease;
+  }
+
+  .main-nav a:hover::after {
+    width: 100%;
+  }
+}
+
+/* ========================================
+   БУРГЕР-МЕНЮ И МОБИЛЬНАЯ НАВИГАЦИЯ
+   ======================================== */
+
+.mobile-menu-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2);
+  z-index: var(--z-index-fixed);
+  margin-left: var(--space-3);
+}
+
+.mobile-menu-toggle span {
+  display: block;
+  width: 24px;
+  height: 3px;
+  background-color: white;
+  border-radius: var(--radius-sm);
+  transition: all 0.3s ease;
+}
+
+.mobile-menu-toggle.active span:nth-child(1) {
+  transform: rotate(45deg) translate(5px, 5px);
+}
+
+.mobile-menu-toggle.active span:nth-child(2) {
+  opacity: 0;
+}
+
+.mobile-menu-toggle.active span:nth-child(3) {
+  transform: rotate(-45deg) translate(5px, -5px);
+}
+
+/* Мобильное меню */
+@media (max-width: 768px) {
+  .mobile-menu-toggle {
+    display: flex;
+  }
+
   .main-nav {
     position: fixed;
     top: 60px;
@@ -286,27 +422,30 @@ h6 { font-size: var(--font-size-base); }
   .nav-row:last-child {
     padding-top: var(--space-4);
   }
+
+  .main-nav a {
+    display: block;
+    padding: var(--space-3);
+    font-size: 1.1rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .user-actions {
+    display: none;
+  }
 }
 
-/* Десктоп - две строки рядом */
 @media (min-width: 769px) {
-  .nav-row ul {
-    gap: var(--space-3);
+  .main-nav {
+    display: flex !important;
   }
 
-  .nav-row:first-child {
-    margin-bottom: var(--space-1);
+  .user-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
   }
-}
-.main-nav a {
-  color: #ecf0f1;
-  text-decoration: none;
-  font-size: 0.95rem;
-  transition: color 0.3s;
-}
-
-.main-nav a:hover {
-  color: var(--accent-color);
 }
 
 .notification-link {
@@ -391,6 +530,8 @@ tr:nth-child(even) {
 
 tr:hover {
   background-color: #f1f1f1;
+  transform: translateX(5px);
+  transition: transform 0.2s ease;
 }
 
 /* ========================================
@@ -418,7 +559,7 @@ textarea,
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
-  box-sizing: border-box; /* Важно для padding */
+  box-sizing: border-box;
   font-family: inherit;
 }
 
@@ -574,7 +715,7 @@ textarea:focus {
 
 .filter-toolbar input,
 .filter-toolbar select {
-  margin: 0; /* Убираем внешние отступы для ровности */
+  margin: 0;
   min-width: 200px;
 }
 
@@ -606,7 +747,7 @@ textarea:focus {
 
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr); /* Две колонки данных */
+  grid-template-columns: repeat(2, 1fr);
   gap: 15px;
 }
 
@@ -693,7 +834,6 @@ textarea:focus {
   display: flex;
   justify-content: center;
   align-items: center;
-  /* Вычитаем высоту шапки (60px) и отступы, чтобы карточка была по центру */
   min-height: calc(100vh - 150px);
 }
 
@@ -715,7 +855,7 @@ textarea:focus {
 .auth-header h2 {
   margin: 0;
   color: var(--primary-color);
-  border-bottom: none; /* Убираем черту из общих стилей h2 */
+  border-bottom: none;
   padding-bottom: 0;
   font-size: 1.5rem;
 }
@@ -730,7 +870,6 @@ textarea:focus {
   margin-bottom: 1.25rem;
 }
 
-/* Используем общие стили инпутов из вашего файла */
 .auth-form input[type="text"],
 .auth-form input[type="password"],
 .auth-form .file-input-wrapper {
@@ -777,6 +916,101 @@ textarea:focus {
 }
 
 /* ========================================
+   МИКРОИНТЕРАКЦИИ И АНИМАЦИИ
+   ======================================== */
+
+/* Плавные переходы для всех интерактивных элементов */
+.button,
+button[type="submit"],
+.profile-card,
+table tr,
+.stat-card,
+.badge {
+  transition: all 0.2s ease;
+}
+
+/* Эффект при нажатии на кнопки */
+.button:active,
+button[type="submit"]:active {
+  transform: translateY(0);
+}
+
+/* Эффект при наведении на карточки */
+.profile-card:hover,
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Анимация появления уведомлений */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Плавное появление секций */
+section {
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   ДОПОЛНИТЕЛЬНЫЕ СТИЛИ ДЛЯ БАЗОВЫХ ЭЛЕМЕНТОВ
+   ======================================== */
+
+/* Улучшенные кнопки выхода и входа */
+.logout-btn {
+  background: none;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 8px;
+  color: #666;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+  background-color: #f8f9fa;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.login-link {
+  text-decoration: none;
+  color: #007bff;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.login-link:hover {
+  color: #0056b3;
+  text-decoration: underline;
+}
+
+.user-info {
+  margin-right: 15px;
+  color: #ecf0f1;
+  font-size: 0.9rem;
+}
+
+/* ========================================
    АДАПТИВНЫЕ СТИЛИ
    ======================================== */
 
@@ -792,19 +1026,6 @@ textarea:focus {
   .logo {
     margin-bottom: var(--space-2);
     font-size: 1.25rem;
-  }
-
-  .main-nav ul {
-    flex-direction: column;
-    gap: var(--space-1);
-    width: 100%;
-    text-align: center;
-  }
-
-  .main-nav a {
-    display: block;
-    padding: var(--space-2);
-    font-size: 0.9rem;
   }
 
   /* Container - уменьшаем отступы */
@@ -974,247 +1195,5 @@ textarea:focus {
   th, td {
     border: 1px solid #000;
     padding: 8px;
-  }
-}
-
-/* ========================================
-   БУРГЕР-МЕНЮ И МОБИЛЬНАЯ НАВИГАЦИЯ
-   ======================================== */
-
-.mobile-menu-toggle {
-  display: none;
-  flex-direction: column;
-  gap: 4px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: var(--space-2);
-  z-index: var(--z-index-fixed);
-  margin-left: var(--space-3);
-}
-
-.mobile-menu-toggle span {
-  display: block;
-  width: 24px;
-  height: 3px;
-  background-color: white;
-  border-radius: var(--radius-sm);
-  transition: all 0.3s ease;
-}
-
-.mobile-menu-toggle.active span:nth-child(1) {
-  transform: rotate(45deg) translate(5px, 5px);
-}
-
-.mobile-menu-toggle.active span:nth-child(2) {
-  opacity: 0;
-}
-
-.mobile-menu-toggle.active span:nth-child(3) {
-  transform: rotate(-45deg) translate(5px, -5px);
-}
-
-@media (max-width: 768px) {
-  .mobile-menu-toggle {
-    display: flex;
-  }
-
-  .main-nav {
-    display: none;
-  }
-
-  .main-nav.active {
-    display: flex;
-  }
-
-  .user-actions {
-    display: none;
-  }
-}
-
-@media (min-width: 769px) {
-  .main-nav {
-    display: flex !important;
-  }
-
-  .user-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-}
-
-/* Мобильное меню */
-.main-nav ul.mobile-active {
-  display: flex !important;
-}
-
-/* ========================================
-   МИКРОИНТЕРАКЦИИ И АНИМАЦИИ
-   ======================================== */
-
-/* Плавные переходы для всех интерактивных элементов */
-.button,
-button[type="submit"],
-.profile-card,
-table tr,
-.stat-card,
-.badge {
-  transition: all 0.2s ease;
-}
-
-/* Эффект при наведении на кнопки */
-.button:hover,
-button[type="submit"]:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.button:active,
-button[type="submit"]:active {
-  transform: translateY(0);
-}
-
-/* Эффект при наведении на карточки */
-.profile-card:hover,
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-}
-
-/* Эффект при наведении на строки таблицы */
-table tr:hover {
-  transform: translateX(5px);
-}
-
-/* Анимация появления уведомлений */
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* Плавное появление секций */
-section {
-  animation: fadeIn 0.5s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ========================================
-   ДОПОЛНИТЕЛЬНЫЕ СТИЛИ ДЛЯ БАЗОВЫХ ЭЛЕМЕНТОВ
-   ======================================== */
-
-/* Улучшенные кнопки выхода и входа */
-.logout-btn {
-  background: none;
-  border: 1px solid #ccc;
-  cursor: pointer;
-  border-radius: 4px;
-  padding: 2px 8px;
-  color: #666;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
-
-.logout-btn:hover {
-  background-color: #f8f9fa;
-  border-color: var(--accent-color);
-  color: var(--accent-color);
-}
-
-.login-link {
-  text-decoration: none;
-  color: #007bff;
-  font-weight: 500;
-  transition: color 0.2s ease;
-}
-
-.login-link:hover {
-  color: #0056b3;
-  text-decoration: underline;
-}
-
-.user-info {
-  margin-right: 15px;
-  color: #ecf0f1;
-  font-size: 0.9rem;
-}
-
-/* ========================================
-   АДАПТИВНЫЕ СТИЛИ ДЛЯ БУРГЕР-МЕНЮ
-   ======================================== */
-
-@media (max-width: 768px) {
-  .mobile-menu-toggle {
-    display: flex;
-  }
-
-  .main-nav ul {
-    position: fixed;
-    top: 60px;
-    left: -100%;
-    flex-direction: column;
-    background-color: var(--primary-color);
-    width: 100%;
-    height: calc(100vh - 60px);
-    padding: var(--space-4);
-    gap: var(--space-1);
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    z-index: var(--z-index-modal);
-    transition: left 0.3s ease;
-  }
-
-  .main-nav ul.mobile-active {
-    left: 0;
-    display: flex;
-  }
-
-  .main-nav a {
-    display: block;
-    padding: var(--space-3);
-    font-size: 1.1rem;
-    text-align: left;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-  }
-
-  .user-actions {
-    display: none;
-  }
-
-  .section-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .section-header a.button {
-    width: 100%;
-    margin-top: var(--space-2);
-  }
-}
-
-@media (min-width: 769px) {
-  .main-nav ul {
-    display: flex !important;
-  }
-
-  .user-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
   }
 }
