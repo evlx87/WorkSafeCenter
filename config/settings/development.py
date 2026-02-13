@@ -11,4 +11,6 @@ if DEBUG:
     mimetypes.add_type("application/javascript", ".js", True)
 
 # Дополнительные настройки для разработки
-INTERNAL_IPS = ['127.0.0.1',]
+INTERNAL_IPS = [
+    '127.0.0.1',
+]
