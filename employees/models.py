@@ -91,9 +91,6 @@ class Employee(models.Model):
         default=False,
         verbose_name="Освобожден от первичного инструктажа",
         help_text="Если отмечено, сотруднику требуется только Вводный инструктаж.")
-    is_executive = models.BooleanField(
-        "Руководитель",
-        default=False)
 
     def save(self, *args, **kwargs):
         if self.termination_date:

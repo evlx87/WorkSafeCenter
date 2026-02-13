@@ -18,7 +18,8 @@ from trainings.models import Training, TrainingProgram
 def overdue_trainings_report(request):
     overdue_date = timezone.now().date() + timedelta(days=30)
     employees = Employee.objects.filter(
-        safetytraining__next_training_date__lte=overdue_date
+        instructions__next_training_date__lte=overdue_date,
+        is_active=True
     ).distinct()
     return render(request,
                   'reports/overdue_trainings.html',

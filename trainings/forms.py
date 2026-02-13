@@ -77,16 +77,12 @@ class InstructionForm(forms.ModelForm):
     )
 
     class Meta:
-        # ИЗМЕНЕНИЕ: Указана новая модель
         model = Instruction
-        # ИЗМЕНЕНИЕ: Заменены старые поля 'category' и 'training_type' на
-        # 'instruction_type'
         fields = [
             'instruction_type',
             'employee',
             'training_date',
             'instructor',
-            'local_act_details',
             'basis_document',
         ]
 
@@ -99,9 +95,6 @@ class InstructionForm(forms.ModelForm):
                     'class': 'form-control',
                     'type': 'date'}),
             'instructor': forms.TextInput(
-                attrs={
-                    'class': 'form-control'}),
-            'local_act_details': forms.TextInput(
                 attrs={
                     'class': 'form-control'}),
             'basis_document': forms.Select(
