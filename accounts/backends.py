@@ -9,28 +9,30 @@ from accounts.models import UserProfile
 UserModel = get_user_model()
 
 
-class FileTokenBackend(ModelBackend):
+class CertificateAuthBackend(ModelBackend):
     """Бэкенд аутентификации по файлу-ключу"""
 
-    def authenticate(self, request, username=None, token_file=None, **kwargs):
-        if not username or not token_file:
+    def authenticate(
+            self,
+            request,
+            username=None,
+            password=None,
+            auth_file=None,
+            **kwargs):
+        # 1. Стандартная проверка логина/пароля
+        user = super().authenticate(request, username, password, **kwargs)
+
+        if not user or not auth_file:
             return None
 
         try:
-            user = UserModel.objects.get(username=username)
-            profile = UserProfile.objects.get(user=user)
+            # 2. Читаем файл-ключ
+            file_content = auth_file.read().decode('utf-8')
+            auth_file.seek(0)  # Возвращаем указатель в начало
 
-            if not profile.auth_token_hash:
-                return None
-
-            # Читаем токен из файла
-            token_content = token_file.read().decode('utf-8')
-            # Возвращаем указатель в начало для повторного использования
-            token_file.seek(0)
-
-            # Извлекаем токен из содержимого файла
+            # 3. Извлекаем токен из файла (формат: KEY=token_value)
             token = None
-            for line in token_content.splitlines():
+            for line in file_content.split('\n'):
                 if line.startswith('KEY='):
                     token = line.split('=', 1)[1].strip()
                     break
@@ -38,14 +40,22 @@ class FileTokenBackend(ModelBackend):
             if not token:
                 return None
 
-            # Сравниваем хэши (безопасное сравнение)
+            # 4. Получаем хэш токена из БД
+            profile = UserProfile.objects.get(user=user)
+
+            if not profile.auth_token_hash:
+                return None
+
+            # 5. Сравниваем хэши (безопасное сравнение)
             input_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
             stored_hash = profile.auth_token_hash
 
             if secrets.compare_digest(input_hash, stored_hash):
                 return user
+            else:
+                return None
 
-        except (UserModel.DoesNotExist, UserProfile.DoesNotExist):
+        except Exception as e:
+            import logging
+            logging.warning(f"Auth failed for {username}: {str(e)[:50]}")
             return None
-
-        return None
