@@ -136,7 +136,7 @@ class Command(BaseCommand):
                     if os.path.exists(file_path):
                         with open(file_path, 'rb') as f:
                             # В вашей модели Training поле называется file
-                            training.file.save(scan_file, File(f), save=True)
+                            training.document_scan.save(scan_file, File(f), save=True)
                         self.stdout.write(
                             f"Файл {scan_file} загружен для {fio}")
 

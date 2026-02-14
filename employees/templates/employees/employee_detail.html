@@ -241,7 +241,8 @@
       <a href="{% url 'trainings:safety_training_create' employee.pk %}" class="button">Добавить инструктаж</a>
   </div>
 
-  {% if employee.instructions.all %}  <table>
+  {% if employee.instructions.all %}
+  <table>
     <thead>
     <tr>
       <th>Тип / Категория</th>
@@ -252,7 +253,8 @@
     </tr>
     </thead>
     <tbody>
-    {% for st in employee.instructions.all %} <tr>
+    {% for st in employee.instructions.all %}
+    <tr>
       <td>
           <strong>{{ st.instruction_type.name }}</strong><br>
           <small>{{ st.instruction_type.get_category_display }}</small>

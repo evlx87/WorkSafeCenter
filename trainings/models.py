@@ -146,12 +146,6 @@ class Instruction(models.Model):
         max_length=200,
         verbose_name="Инструктор")
 
-    local_act_details = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        verbose_name="Основание для проведения (приказ, распоряжение)"
-    )
     basis_document = models.ForeignKey(
         Document,
         on_delete=models.SET_NULL,

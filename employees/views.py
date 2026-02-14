@@ -1,11 +1,12 @@
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.utils import timezone
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
+
 from organization.models import Department
 from trainings.services import check_employee_compliance
 from .forms import EmployeeForm
 from .models import Employee
-from django.contrib.auth.mixins import LoginRequiredMixin
 
 
 # Create your views here.
