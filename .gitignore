@@ -214,4 +214,5 @@ __marimo__/
 *.xlsx
 *.pdf
 *.jpg
+keys/
 *.key
