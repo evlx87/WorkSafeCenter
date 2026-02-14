@@ -27,7 +27,10 @@ class WorkplaceCreateView(CreateView):
 
 
 class WorkplaceUpdateView(UpdateView):
-    pass
+    model = Workplace
+    fields = ['number', 'position', 'site']
+    template_name = 'assessments/workplace_form.html'
+    success_url = reverse_lazy('assessments:workplace_list')
 
 
 class SOUTUpdateView(UpdateView):
