@@ -33,16 +33,6 @@ class Employee(models.Model):
         verbose_name="Дата рождения")
     hire_date = models.DateField(
         verbose_name="Дата найма")
-    medical_check_date = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Дата последнего медосмотра",
-        help_text = "⚠️ УСТАРЕЛО: данные хранятся в модуле Медосмотры")
-    safety_training_date = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Дата последнего инструктажа по охране труда",
-        help_text="⚠️ УСТАРЕЛО: данные хранятся в модуле Обучение")
     email = EncryptedEmailField(
         unique=True,
         blank=True,

@@ -31,9 +31,3 @@ class EmployeeAdmin(admin.ModelAdmin):
         'department'
     )
     ordering = ('last_name',)
-
-    def get_readonly_fields(self, request, obj=None):
-        # Делаем устаревшие поля только для чтения
-        readonly = list(self.readonly_fields or [])
-        readonly.extend(['medical_check_date', 'safety_training_date'])
-        return readonly
