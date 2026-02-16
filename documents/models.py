@@ -31,6 +31,7 @@ class Document(models.Model):
         ('INSTRUCTION', 'Инструкция по ОТ'),
         ('ORDER', 'Приказ/Распоряжение'),
         ('CERTIFICATE', 'Сертификат/Удостоверение'),
+        ('DIPLOMA', 'Диплом профессиональной переподготовки'),
     )
 
     title = models.CharField(max_length=200, verbose_name="Название")

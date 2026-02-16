@@ -16,8 +16,6 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const typeSelect = document.getElementById('id_document_type');
-
-    // Получаем контейнеры полей (в Django form.as_p это теги <p>)
     const fileContainer = document.getElementById('id_file_field').closest('p');
     const linkContainer = document.getElementById('id_external_link_field').closest('p');
     const employeeContainer = document.getElementById('id_employee_field').closest('p');
@@ -25,15 +23,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function toggleFields() {
         const selectedType = typeSelect.value;
 
-        // 1. Сотрудник: показываем только для "Сертификат/Удостоверение"
-        if (selectedType === 'CERTIFICATE') {
+        if (selectedType === 'CERTIFICATE' || selectedType === 'DIPLOMA') {
             employeeContainer.style.display = 'block';
         } else {
             employeeContainer.style.display = 'none';
             document.getElementById('id_employee_field').value = '';
         }
 
-        // 2. Ссылка: показываем только для "НПА (РФ)"
         if (selectedType === 'FEDERAL') {
             linkContainer.style.display = 'block';
         } else {
@@ -41,13 +37,11 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('id_external_link_field').value = '';
         }
 
-        // 3. Файл: доступен всегда (для НПА как альтернатива, для остальных — как основной)
-        // Если хотите запретить файл для чего-то конкретного, можно добавить условие сюда.
         fileContainer.style.display = 'block';
     }
 
     typeSelect.addEventListener('change', toggleFields);
-    toggleFields(); // Вызов при загрузке страницы
+    toggleFields();
 });
 </script>
 {% endblock %}
