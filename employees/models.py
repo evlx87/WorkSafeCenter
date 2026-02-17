@@ -2,6 +2,8 @@ from django.db import models
 from encrypted_model_fields.fields import EncryptedCharField, EncryptedEmailField
 
 # Create your models here.
+
+
 class Employee(models.Model):
     first_name = models.CharField(
         max_length=100,
@@ -81,6 +83,11 @@ class Employee(models.Model):
         default=False,
         verbose_name="Освобожден от первичного инструктажа",
         help_text="Если отмечено, сотруднику требуется только Вводный инструктаж.")
+    previous_names = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Предыдущие фамилии",
+        help_text="Список предыдущих фамилий сотрудника")
 
     def save(self, *args, **kwargs):
         if self.termination_date:

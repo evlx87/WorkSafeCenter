@@ -88,6 +88,22 @@ class TrainingProgram(models.Model):
 
 
 class Training(models.Model):
+    DOCUMENT_TYPES = [
+        ('PROTOCOL', 'Протокол проверки знаний'),
+        ('CERT_QUAL', 'Удостоверение о повышении квалификации'),
+        ('CERT_COMPL', 'Сертификат о повышении квалификации'),
+        ('DIPLOMA', 'Диплом о профессиональной переподготовке'),
+    ]
+
+    TRAINING_CATEGORY = [
+        ('SAFETY', 'Охрана труда'),
+        ('FIRE', 'Пожарная безопасность'),
+        ('FIRST_AID', 'Первая помощь'),
+        ('ELECTRICAL', 'Электробезопасность'),
+        ('ANTITERROR', 'Антитеррористическая защищенность'),
+        ('OTHER', 'Другое'),
+    ]
+
     program = models.ForeignKey(
         TrainingProgram,
         on_delete=models.PROTECT,
@@ -109,6 +125,32 @@ class Training(models.Model):
         verbose_name="Скан документа (PDF/JPG/PNG)",
         null=True,
         blank=True
+    )
+    document_type = models.CharField(
+        max_length=20,
+        choices=DOCUMENT_TYPES,
+        verbose_name="Тип документа",
+        null=True,
+        blank=True
+    )
+
+    program_name_in_document = models.CharField(
+        max_length=255,
+        verbose_name="Название программы в документе",
+        blank=True,
+        help_text="Как программа называется в удостоверении/сертификате"
+    )
+    document_number = models.CharField(
+        max_length=100,
+        verbose_name="Номер документа",
+        blank=True
+    )
+
+    training_category = models.CharField(
+        max_length=20,
+        choices=TRAINING_CATEGORY,
+        verbose_name="Категория обучения",
+        default='OTHER'
     )
 
     class Meta:
@@ -185,3 +227,40 @@ class Instruction(models.Model):
 
     def __str__(self):
         return f"{self.instruction_type.name} - {self.employee}"
+
+
+# trainings/models.py
+class ProgramNameMapping(models.Model):
+    """Сопоставление разных названий программ к стандартной программе"""
+
+    variant_name = models.CharField(
+        max_length=255,
+        verbose_name="Вариант названия программы",
+        help_text="Как программа называется в документе"
+    )
+
+    standard_program = models.ForeignKey(
+        TrainingProgram,
+        on_delete=models.CASCADE,
+        verbose_name="Стандартная программа",
+        null=True,
+        blank=True
+    )
+
+    training_category = models.CharField(
+        max_length=20,
+        choices=Training.TRAINING_CATEGORY,
+        verbose_name="Категория обучения"
+    )
+
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Сопоставление названий программ"
+        verbose_name_plural = "Сопоставления названий программ"
+        unique_together = ['variant_name', 'training_category']
+
+    def __str__(self):
+        return f'"{
+            self.variant_name}" → {
+            self.get_training_category_display()}'

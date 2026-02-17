@@ -2,10 +2,11 @@ from django.db import models
 from django.utils import timezone
 
 from employees.models import Employee
+from trainings.validators import validate_pdf_or_image
 
 
 # Create your models here.
-class Category(models.Model): # Сначала категория
+class Category(models.Model):  # Сначала категория
     CATEGORY_CHOICES = (
         ('FIRE', 'Пожарная безопасность'),
         ('ELECTRO', 'Электробезопасность'),
@@ -15,11 +16,15 @@ class Category(models.Model): # Сначала категория
         ('OTHER', 'Прочее'),
     )
 
-    name = models.CharField("Название категории", max_length=100, choices=CATEGORY_CHOICES)
+    name = models.CharField(
+        "Название категории",
+        max_length=100,
+        choices=CATEGORY_CHOICES)
 
     class Meta:
         verbose_name = "Категория документов"
         verbose_name_plural = "Категории документов"
+
     def __str__(self):
         return self.name
 
@@ -32,6 +37,10 @@ class Document(models.Model):
         ('ORDER', 'Приказ/Распоряжение'),
         ('CERTIFICATE', 'Сертификат/Удостоверение'),
         ('DIPLOMA', 'Диплом профессиональной переподготовки'),
+        ('PROTOCOL', 'Протокол проверки знаний'),
+        ('CERT_QUAL', 'Удостоверение о повышении квалификации'),
+        ('CERT_COMPL', 'Сертификат о повышении квалификации'),
+        ('DIPLOMA_RETR', 'Диплом о профессиональной переподготовке'),
     )
 
     title = models.CharField(max_length=200, verbose_name="Название")

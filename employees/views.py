@@ -45,12 +45,14 @@ class EmployeeDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
         # Получаем статус соблюдения требований
         compliance_status = check_employee_compliance(self.object)
-
         context['compliance'] = compliance_status
         context['today'] = timezone.now().date()
+        # Добавляем информацию о документах
+        context['employee_documents'] = self.object.trainings.filter(
+            document_type__isnull=False
+        ).select_related('program')
         # Просто флаг, есть ли проблемы, для отображения блока предупреждения
         context['has_compliance_issues'] = any([
             compliance_status['missing_programs'],
@@ -58,7 +60,6 @@ class EmployeeDetailView(DetailView):
             compliance_status['expired_programs'],
             compliance_status['expired_instructions']
         ])
-
         return context
 
 

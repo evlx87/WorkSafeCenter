@@ -51,7 +51,15 @@ class TrainingForm(forms.ModelForm):
 
     class Meta:
         model = Training
-        fields = ['program', 'employee', 'training_date', 'document_scan']
+        fields = [
+            'program',
+            'employee',
+            'training_date',
+            'document_scan',
+            'document_type',
+            'program_name_in_document',
+            'document_number'
+        ]
         widgets = {
             'program': forms.Select(
                 attrs={
@@ -63,6 +71,15 @@ class TrainingForm(forms.ModelForm):
                 attrs={
                     'class': 'form-control',
                     'type': 'date'}),
+            'document_type': forms.Select(
+                attrs={
+                    'class': 'form-control'}),
+            'program_name_in_document': forms.TextInput(
+                attrs={
+                    'class': 'form-control'}),
+            'document_number': forms.TextInput(
+                attrs={
+                    'class': 'form-control'}),
         }
 
 

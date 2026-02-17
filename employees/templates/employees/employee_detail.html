@@ -235,6 +235,52 @@
   {% endif %}
 </section>
 
+{% if employee_documents %}
+<section>
+    <div class="section-header">
+        <h3>📄 Документы о проф. образовании</h3>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Тип документа</th>
+                <th>Программа (в документе)</th>
+                <th>Дата выдачи</th>
+                <th>Номер документа</th>
+                <th>Скан</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for doc in employee_documents %}
+            <tr>
+                <td>
+                    <strong>{{ doc.get_document_type_display }}</strong>
+                </td>
+                <td>
+                    {% if doc.program %}
+                        {{ doc.program.name }}
+                    {% else %}
+                        <span style="color: #999;">{{ doc.program_name_in_document }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ doc.training_date|date:"d.m.Y" }}</td>
+                <td>{{ doc.document_number|default:"-" }}</td>
+                <td>
+                    {% if doc.document_scan %}
+                        <a href="{{ doc.document_scan.url }}" target="_blank" style="color: var(--accent-color);">
+                            📄 Скачать
+                        </a>
+                    {% else %}
+                        <span style="color: #ccc;">Нет файла</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+
 <section>
   <div class="section-header">
       <h3>Инструктажи по охране труда</h3>
