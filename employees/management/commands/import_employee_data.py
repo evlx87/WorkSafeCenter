@@ -8,7 +8,7 @@ from django.utils.dateparse import parse_date
 
 from employees.models import Employee
 from organization.models import OrganizationSafetyInfo, Site, Department, Position
-from trainings.models import TrainingProgram, Training, Instruction, InstructionType
+from trainings.models import TrainingProgram, Training, Instruction, InstructionType, ProgramNameMapping
 
 
 class Command(BaseCommand):
@@ -158,39 +158,14 @@ class Command(BaseCommand):
                 '⚠️ Лист "3. Должности" не найден — пропускаем'))
 
         # ==========================================
-        # 4. Программы обучения
-        # ==========================================
-        prog_created = 0
-        try:
-            ws_prog = wb["4. Программы"]
-            for row in ws_prog.iter_rows(min_row=2, values_only=True):
-                if row[0]:
-                    prog, created = TrainingProgram.objects.get_or_create(
-                        name=str(
-                            row[0]).strip(), defaults={
-                            'training_type': str(
-                                row[1]).strip() if len(row) > 1 and row[1] else 'SAFETY', 'hours': int(
-                                row[2]) if len(row) > 2 and row[2] else 8, 'frequency_months': int(
-                                row[3]) if len(row) > 3 and row[3] else 12, 'is_mandatory': str(
-                                row[4]).strip().lower() == 'да' if len(row) > 4 and row[4] else False})
-                    if created:
-                        prog_created += 1
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'✅ Программы обучения: {prog_created} шт.'))
-        except KeyError:
-            self.stdout.write(self.style.WARNING(
-                '⚠️ Лист "4. Программы" не найден — пропускаем'))
-
-        # ==========================================
-        # 5. Сотрудники
+        # 4. Сотрудники
         # ==========================================
         emp_created = 0
         emp_updated = 0
         employees_by_fio = {}  # Для последующей привязки инструктажей и обучения
 
         try:
-            ws_emp = wb["5. Сотрудники"]
+            ws_emp = wb["4. Сотрудники"]
             for row in ws_emp.iter_rows(min_row=2, values_only=True):
                 # Обязательные поля: Фамилия и Имя
                 if not row[0] or not row[1]:
@@ -262,7 +237,31 @@ class Command(BaseCommand):
                     f'✅ Сотрудники: {emp_created} новых, {emp_updated} обновлено'))
         except KeyError:
             raise CommandError(
-                '❌ Критическая ошибка: Лист "5. Сотрудники" не найден!')
+                '❌ Критическая ошибка: Лист "4. Сотрудники" не найден!')
+        # ==========================================
+        # 4. Программы обучения
+        # ==========================================
+        prog_created = 0
+        try:
+            ws_prog = wb["5. Программы"]
+            for row in ws_prog.iter_rows(min_row=2, values_only=True):
+                if row[0]:
+                    prog, created = TrainingProgram.objects.get_or_create(
+                        name=str(
+                            row[0]).strip(), defaults={
+                            'training_type': str(
+                                row[1]).strip() if len(row) > 1 and row[1] else 'SAFETY', 'hours': int(
+                                row[2]) if len(row) > 2 and row[2] else 8, 'frequency_months': int(
+                                row[3]) if len(row) > 3 and row[3] else 12, 'is_mandatory': str(
+                                row[4]).strip().lower() == 'да' if len(row) > 4 and row[4] else False})
+                    if created:
+                        prog_created += 1
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'✅ Программы обучения: {prog_created} шт.'))
+        except KeyError:
+            self.stdout.write(self.style.WARNING(
+                '⚠️ Лист "5. Программы" не найден — пропускаем'))
 
         # ==========================================
         # 6. Автоматическое назначение директора и спец. по ОТ
@@ -326,83 +325,13 @@ class Command(BaseCommand):
             org.save()
 
         # ==========================================
-        # 7. Обучение (опционально)
+        # 7. Обучение
         # ==========================================
         train_created = 0
         try:
             ws_train = wb["6. Обучение"]
             for row in ws_train.iter_rows(min_row=2, values_only=True):
-                if not row[0] or not row[1]:  # Требуются ФИО и название программы
-                    continue
-
-                # Поиск сотрудника по ФИО
-                fio = str(row[0]).strip()
-                emp = None
-                for fio_key, employee in employees_by_fio.items():
-                    if fio.lower() in fio_key.lower():
-                        emp = employee
-                        break
-
-                if not emp:
-                    self.stdout.write(
-                        self.style.WARNING(
-                            f'⚠️ Сотрудник "{fio}" не найден для обучения'))
-                    continue
-
-                # Поиск программы
-                prog = TrainingProgram.objects.filter(
-                    name__icontains=str(row[1]).strip()).first()
-                if not prog:
-                    self.stdout.write(
-                        self.style.WARNING(
-                            f'⚠️ Программа "{
-                                row[1]}" не найдена'))
-                    continue
-
-                # Парсинг даты
-                train_date = self._parse_date(row[2]) if len(row) > 2 else None
-                if not train_date:
-                    continue
-
-                # Создание записи об обучении
-                training, created = Training.objects.get_or_create(
-                    employee=emp, program=prog, training_date=train_date, defaults={
-                        'protocol_number': str(
-                            row[3]).strip() if len(row) > 3 and row[3] else '', 'certificate_number': str(
-                            row[4]).strip() if len(row) > 4 and row[4] else ''})
-
-                # Загрузка скана
-                if created and scans_dir and len(row) > 5 and row[5]:
-                    scan_file = str(row[5]).strip()
-                    file_path = os.path.join(scans_dir, scan_file)
-                    if os.path.exists(file_path):
-                        with open(file_path, 'rb') as f:
-                            training.document_scan.save(
-                                scan_file, File(f), save=True)
-                        self.stdout.write(f'   📄 Скан загружен: {scan_file}')
-                    else:
-                        self.stdout.write(
-                            self.style.WARNING(
-                                f'⚠️ Файл скана не найден: {file_path}'))
-
-                if created:
-                    train_created += 1
-
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'✅ Обучение: {train_created} записей'))
-        except KeyError:
-            self.stdout.write(self.style.WARNING(
-                'ℹ️ Лист "6. Обучение" не найден — пропускаем'))
-
-        # ==========================================
-        # 8. Инструктажи (опционально)
-        # ==========================================
-        instr_created = 0
-        try:
-            ws_instr = wb["7. Инструктажи"]
-            for row in ws_instr.iter_rows(min_row=2, values_only=True):
-                if not row[0] or not row[1]:  # Требуются ФИО и тип инструктажа
+                if not row[0]:  # Требуется ФИО
                     continue
 
                 # Поиск сотрудника
@@ -413,49 +342,130 @@ class Command(BaseCommand):
                         emp = employee
                         break
 
+                # Проверяем альтернативные имена (смена фамилии)
                 if not emp:
-                    continue
+                    for employee in Employee.objects.all():
+                        if employee.previous_names:
+                            for prev_name in employee.previous_names:
+                                if fio.lower() in prev_name.lower():
+                                    emp = employee
+                                    self.stdout.write(
+                                        self.style.WARNING(
+                                            f'⚠️ Найден сотрудник по предыдущему ФИО: {fio} → {
+                                                employee.last_name} {
+                                                employee.first_name}'))
+                                    break
+                        if emp:
+                            break
 
-                # Поиск типа инструктажа (точное совпадение или частичное)
-                instr_type = InstructionType.objects.filter(
-                    name__icontains=str(row[1]).strip()
-                ).first()
-
-                if not instr_type:
-                    # Создаем новый тип инструктажа, если не найден
-                    instr_type = InstructionType.objects.create(
-                        name=str(row[1]).strip(),
-                        category='OTHER',
-                        type_name='Другой',
-                        frequency_months=0
-                    )
+                if not emp:
                     self.stdout.write(
                         self.style.WARNING(
-                            f'⚠️ Создан новый тип инструктажа: {
-                                instr_type.name}'))
-
-                # Парсинг даты
-                instr_date = self._parse_date(row[2]) if len(row) > 2 else None
-                if not instr_date:
+                            f'⚠️ Сотрудник "{fio}" не найден для обучения'
+                        )
+                    )
                     continue
 
-                # Создание инструктажа
-                Instruction.objects.get_or_create(
-                    employee=emp, instruction_type=instr_type, training_date=instr_date, defaults={
-                        'instructor': str(
-                            row[3]).strip() if len(row) > 3 and row[3] else 'Специалист по ОТ', 'notes': str(
-                            row[4]).strip() if len(row) > 4 and row[4] else ''})
-                instr_created += 1
+                # Определение категории обучения
+                category_map = {
+                    'ОТ': 'SAFETY',
+                    'охрана труда': 'SAFETY',
+                    'пб': 'FIRE',
+                    'пожарная безопасность': 'FIRE',
+                    'эб': 'ELECTRICAL',
+                    'электробезопасность': 'ELECTRICAL',
+                    'первая помощь': 'FIRST_AID',
+                    'антитерроризм': 'ANTITERROR',
+                    'антитеррористическая защищенность': 'ANTITERROR',
+                }
+
+                category_name = str(row[1]).strip().lower() if len(
+                    row) > 1 and row[1] else 'other'
+                category = category_map.get(category_name, 'OTHER')
+
+                # Определение типа документа
+                doc_type_map = {
+                    'протокол': 'PROTOCOL',
+                    'удостоверение': 'CERT_QUAL',
+                    'сертификат': 'CERT_COMPL',
+                    'диплом': 'DIPLOMA',
+                    'без документа': None,
+                }
+
+                doc_type_name = str(row[2]).strip().lower() if len(
+                    row) > 2 and row[2] else ''
+                doc_type = doc_type_map.get(doc_type_name)
+
+                # Название программы в документе
+                program_name_in_doc = str(
+                    row[3]).strip() if len(row) > 3 and row[3] else ''
+
+                # Поиск стандартной программы
+                training_program = None
+                if program_name_in_doc:
+                    # Ищем в справочнике сопоставлений
+                    mapping = ProgramNameMapping.objects.filter(
+                        variant_name__iexact=program_name_in_doc,
+                        training_category=category,
+                        is_active=True
+                    ).first()
+
+                    if mapping and mapping.standard_program:
+                        training_program = mapping.standard_program
+                    else:
+                        # Ищем по частичному совпадению
+                        training_program = TrainingProgram.objects.filter(
+                            name__icontains=program_name_in_doc
+                        ).first()
+
+                # Парсинг даты
+                train_date = self._parse_date(row[4]) if len(row) > 4 else None
+                if not train_date:
+                    continue
+
+                # Номер документа
+                doc_number = str(row[5]).strip() if len(
+                    row) > 5 and row[5] else ''
+
+                # Создание записи об обучении
+                training, created = Training.objects.get_or_create(
+                    employee=emp,
+                    training_date=train_date,
+                    defaults={
+                        'program': training_program,
+                        'document_type': doc_type,
+                        'program_name_in_document': program_name_in_doc,
+                        'document_number': doc_number,
+                        'training_category': category,
+                    }
+                )
+
+                # Загрузка скана документа
+                if created and scans_dir and len(row) > 6 and row[6]:
+                    scan_file = str(row[6]).strip()
+                    file_path = os.path.join(scans_dir, scan_file)
+                    if os.path.exists(file_path):
+                        with open(file_path, 'rb') as f:
+                            training.document_scan.save(
+                                scan_file, File(f), save=True)
+                        self.stdout.write(
+                            f'   📄 Скан документа загружен: {scan_file}')
+                    else:
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f'⚠️ Файл скана не найден: {file_path}'
+                            )
+                        )
+
+                if created:
+                    train_created += 1
 
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'✅ Инструктажи: {instr_created} записей'))
+                    f'✅ Обучение: {train_created} записей'
+                )
+            )
         except KeyError:
             self.stdout.write(self.style.WARNING(
-                'ℹ️ Лист "7. Инструктажи" не найден — пропускаем'))
-
-        self.stdout.write(self.style.SUCCESS('\n✨ Импорт завершен успешно!'))
-        self.stdout.write(self.style.SUCCESS(
-            '✅ Директор и спец. по ОТ назначены автоматически на основе флагов сотрудников'))
-        self.stdout.write(
-            '💡 Совет: Проверьте корректность данных в разделе "Организация → Редактировать данные"')
+                'ℹ️ Лист "6. Обучение" не найден — пропускаем'
+            ))
