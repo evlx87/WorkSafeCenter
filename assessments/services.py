@@ -38,7 +38,7 @@ def export_sout_plan_to_excel():
     # Получаем те же данные, что в SOUTPlanningListView
     today = timezone.now().date()
     # Мы можем импортировать логику фильтрации или просто пройти по всем
-    workplaces = Workplace.objects.all()
+    workplaces = Workplace.objects.all().prefetch_related('sout_assessments')
 
     for wp in workplaces:
         status = wp.sout_status

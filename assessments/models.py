@@ -1,7 +1,9 @@
-from django.db import models
+from datetime import timedelta
+
+from dateutil.relativedelta import relativedelta
 from django.db import models
 from django.utils import timezone
-from datetime import timedelta
+
 from organization.models import Position, Site
 
 
@@ -82,7 +84,7 @@ class SOUTAssessment(models.Model):
         # Автоматический расчет следующей даты (обычно через 5 лет),
         # если она не введена вручную
         if not self.next_assessment_date and self.assessment_date:
-            self.next_assessment_date = self.assessment_date + timedelta(days=5 * 365)
+            self.next_assessment_date = self.assessment_date + relativedelta(years=5)
         super().save(*args, **kwargs)
 
     class Meta:
