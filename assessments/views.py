@@ -49,12 +49,8 @@ class SOUTPlanningListView(ListView):
 
     def get_queryset(self):
         today = timezone.now().date()
-        # Порог "подходящего срока" (например, за 60 дней)
         warning_threshold = today + timedelta(days=60)
 
-        # Фильтруем РМ:
-        # 1. СОУТ никогда не проводилась (sout__isnull=True)
-        # 2. Либо срок следующей СОУТ уже прошел или наступит скоро
         return Workplace.objects.filter(
             Q(sout__isnull=True) |
             Q(sout__next_assessment_date__lte=warning_threshold)

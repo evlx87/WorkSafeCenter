@@ -81,8 +81,7 @@ class SOUTAssessment(models.Model):
         null=True)
 
     def save(self, *args, **kwargs):
-        # Автоматический расчет следующей даты (обычно через 5 лет),
-        # если она не введена вручную
+        # Автоматический расчет следующей даты (точно через 5 лет)
         if not self.next_assessment_date and self.assessment_date:
             self.next_assessment_date = self.assessment_date + relativedelta(years=5)
         super().save(*args, **kwargs)

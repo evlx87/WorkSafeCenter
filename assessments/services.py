@@ -26,6 +26,10 @@ def export_sout_plan_to_excel():
     ws = wb.active
     ws.title = "План СОУТ"
 
+    workplaces = Workplace.objects.select_related(
+        'sout', 'position', 'site'
+    ).prefetch_related('sout_assessments').all()
+
     # Заголовки
     headers = ['№ РМ', 'Площадка/Цех', 'Должность', 'Текущий статус', 'Срок следующей СОУТ']
     ws.append(headers)
@@ -35,10 +39,8 @@ def export_sout_plan_to_excel():
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="D3D3D3", fill_type="solid")
 
-    # Получаем те же данные, что в SOUTPlanningListView
     today = timezone.now().date()
-    # Мы можем импортировать логику фильтрации или просто пройти по всем
-    workplaces = Workplace.objects.all().prefetch_related('sout_assessments')
+    # workplaces = Workplace.objects.all()
 
     for wp in workplaces:
         status = wp.sout_status

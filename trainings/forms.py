@@ -1,8 +1,8 @@
 from django import forms
+
 from .models import TrainingProgram, Training, Instruction, InstructionType
 
 
-# 1. TrainingProgramForm (без изменений)
 class TrainingProgramForm(forms.ModelForm):
     class Meta:
         model = TrainingProgram
@@ -31,9 +31,7 @@ class TrainingProgramForm(forms.ModelForm):
         }
 
 
-# 2. TrainingForm (добавлен help_text)
 class TrainingForm(forms.ModelForm):
-    # Добавлен help_text для улучшения UX
     document_scan = forms.FileField(
         required=False,
         help_text="Разрешены только файлы в формате .pdf.",
@@ -83,10 +81,7 @@ class TrainingForm(forms.ModelForm):
         }
 
 
-# 3. InstructionForm (РАНЕЕ SafetyTrainingForm)
-# ИЗМЕНЕНИЕ: Переименован класс и обновлены поля для InstructionType
 class InstructionForm(forms.ModelForm):
-    # Используем ModelChoiceField для выбора InstructionType
     instruction_type = forms.ModelChoiceField(
         queryset=InstructionType.objects.all(),
         label="Тип инструктажа",
