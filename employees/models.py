@@ -83,11 +83,11 @@ class Employee(models.Model):
         default=False,
         verbose_name="Освобожден от первичного инструктажа",
         help_text="Если отмечено, сотруднику требуется только Вводный инструктаж.")
-    previous_names = models.JSONField(
-        default=list,
+    previous_last_name = models.CharField(
+        max_length=100,
         blank=True,
-        verbose_name="Предыдущие фамилии",
-        help_text="Список предыдущих фамилий сотрудника")
+        verbose_name="Предыдущая фамилия",
+        help_text="Укажите старую фамилию, если она менялась")
 
     def save(self, *args, **kwargs):
         if self.termination_date:

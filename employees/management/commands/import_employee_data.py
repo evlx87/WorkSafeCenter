@@ -167,55 +167,56 @@ class Command(BaseCommand):
         try:
             ws_emp = wb["4. Сотрудники"]
             for row in ws_emp.iter_rows(min_row=2, values_only=True):
-                # Обязательные поля: Фамилия и Имя
-                if not row[0] or not row[1]:
+                if not row[0] or not row[2]:
                     continue
 
                 # Парсинг дат
-                birth_date = self._parse_date(row[5]) if len(row) > 5 else None
-                hire_date = self._parse_date(row[6]) if len(row) > 6 else None
+                birth_date = self._parse_date(
+                    row[6]) if len(row) > 6 else None
+                hire_date = self._parse_date(
+                    row[7]) if len(row) > 7 else None
                 termination_date = self._parse_date(
-                    row[17]) if len(row) > 17 else None
+                    row[18]) if len(row) > 18 else None
 
                 # Поиск должности и отдела
                 position = None
-                if len(row) > 3 and row[3]:
+                if len(row) > 4 and row[4]:
                     position = Position.objects.filter(
-                        name=str(row[3]).strip()).first()
+                        name=str(row[4]).strip()).first()
 
                 department = None
-                if len(row) > 4 and row[4]:
+                if len(row) > 5 and row[5]:
                     department = Department.objects.filter(
-                        name=str(row[4]).strip()).first()
+                        name=str(row[5]).strip()).first()
 
                 # Создание/обновление сотрудника
                 emp, created = Employee.objects.update_or_create(
                     last_name=str(row[0]).strip(),
-                    first_name=str(row[1]).strip(),
+                    first_name=str(row[2]).strip(),
                     defaults={
-                        'middle_name': str(row[2]).strip() if len(row) > 2 and row[2] else '',
+                        'middle_name': str(row[3]).strip() if len(row) > 3 and row[3] else '',
+                        'previous_last_name': str(row[1]).strip() if len(row) > 1 and row[1] else '',
                         'position': position,
                         'department': department,
                         'birth_date': birth_date,
                         'hire_date': hire_date,
-                        'phone': str(row[7]).strip() if len(row) > 7 and row[7] else '',
-                        'email': str(row[8]).strip() if len(row) > 8 and row[8] else '',
-                        'is_executive': str(row[9]).strip().lower() == 'да' if len(row) > 9 and row[9] else False,
-                        'is_pedagogical': str(row[10]).strip().lower() == 'да' if len(row) > 10 and row[10] else False,
-                        'is_safety_specialist': str(row[11]).strip().lower() == 'да' if len(row) > 11 and row[
-                            11] else False,
-                        'is_safety_committee_member': str(row[12]).strip().lower() == 'да' if len(row) > 12 and row[
-                            12] else False,
-                        'is_safety_committee_chair': str(row[13]).strip().lower() == 'да' if len(row) > 13 and row[
+                        'phone': str(row[8]).strip() if len(row) > 8 and row[8] else '',
+                        'email': str(row[9]).strip() if len(row) > 9 and row[9] else '',
+                        'is_executive': str(row[10]).strip().lower() == 'да' if len(row) > 10 and row[10] else False,
+                        'is_pedagogical': str(row[11]).strip().lower() == 'да' if len(row) > 11 and row[11] else False,
+                        'is_safety_specialist': str(row[12]).strip().lower() == 'да' if len(row) > 12 and row[12] else False,
+                        'is_safety_committee_member': str(row[13]).strip().lower() == 'да' if len(row) > 13 and row[
                             13] else False,
-                        'is_acting_director': str(row[14]).strip().lower() == 'да' if len(row) > 14 and row[
+                        'is_safety_committee_chair': str(row[14]).strip().lower() == 'да' if len(row) > 14 and row[
                             14] else False,
-                        'exempt_from_safety_instruction': str(row[15]).strip().lower() == 'да' if len(row) > 15 and row[
+                        'is_acting_director': str(row[15]).strip().lower() == 'да' if len(row) > 15 and row[
                             15] else False,
-                        'on_parental_leave': str(row[16]).strip().lower() == 'да' if len(row) > 16 and row[
+                        'exempt_from_safety_instruction': str(row[16]).strip().lower() == 'да' if len(row) > 16 and row[
                             16] else False,
+                        'on_parental_leave': str(row[17]).strip().lower() == 'да' if len(row) > 17 and row[
+                            17] else False,
                         'termination_date': termination_date,
-                        'termination_order_number': str(row[18]).strip() if len(row) > 18 and row[18] else '',
+                        'termination_order_number': str(row[19]).strip() if len(row) > 19 and row[19] else '',
                         'is_active': termination_date is None,
                     }
                 )
@@ -334,24 +335,49 @@ class Command(BaseCommand):
                 if not row[0]:  # Требуется ФИО
                     continue
 
-                # Поиск сотрудника
-                fio = str(row[0]).strip()
-                emp = None
-                for fio_key, employee in employees_by_fio.items():
-                    if fio.lower() in fio_key.lower():
-                        emp = employee
-                        break
+                # Поиск сотрудника ПО ФИО с учетом предыдущей фамилии
+                fio_parts = str(row[0]).strip().split()
 
-                # Проверяем альтернативные имена (смена фамилии)
+                if len(fio_parts) < 2:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f'⚠️ Некорректный формат ФИО: "{row[0]}"'))
+                    continue
+
+                ln = fio_parts[0].strip()  # Фамилия
+                fn = fio_parts[1].strip()  # Имя
+                mn = fio_parts[2].strip() if len(
+                    fio_parts) > 2 else ''  # Отчество
+
+                # ПОИСК ПО ТЕКУЩЕЙ ИЛИ ПРЕДЫДУЩЕЙ ФАМИЛИИ
+                emp = Employee.objects.filter(
+                    Q(last_name__iexact=ln) | Q(previous_last_name__iexact=ln),
+                    first_name__iexact=fn,
+                    middle_name__iexact=mn
+                ).first()
+
+                # Если не найден по точному совпадению, ищем по частичному
+                # совпадению
                 if not emp:
-                    for employee in Employee.objects.all():
+                    emp = Employee.objects.filter(
+                        Q(last_name__icontains=ln) | Q(previous_last_name__icontains=ln),
+                        first_name__icontains=fn,
+                        middle_name__icontains=mn
+                    ).first()
+
+                # Если все еще не найден, проверяем альтернативные имена
+                if not emp and Employee.objects.filter(
+                        previous_names__isnull=False).exists():
+                    for employee in Employee.objects.filter(
+                            previous_names__isnull=False):
                         if employee.previous_names:
                             for prev_name in employee.previous_names:
-                                if fio.lower() in prev_name.lower():
+                                if ln.lower() in prev_name.lower():
                                     emp = employee
                                     self.stdout.write(
                                         self.style.WARNING(
-                                            f'⚠️ Найден сотрудник по предыдущему ФИО: {fio} → {
+                                            f'⚠️ Найден сотрудник по предыдущему ФИО: {
+                                                row[0]} → ' f'{
                                                 employee.last_name} {
                                                 employee.first_name}'))
                                     break
@@ -361,7 +387,7 @@ class Command(BaseCommand):
                 if not emp:
                     self.stdout.write(
                         self.style.WARNING(
-                            f'⚠️ Сотрудник "{fio}" не найден для обучения'
+                            f'⚠️ Сотрудник "{row[0]}" не найден для обучения'
                         )
                     )
                     continue

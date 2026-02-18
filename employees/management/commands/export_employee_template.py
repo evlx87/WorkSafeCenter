@@ -49,6 +49,7 @@ class Command(BaseCommand):
         ws4 = wb.create_sheet("4. Сотрудники")
         ws4.append([
             'Фамилия',
+            'Предыдущая фамилия',
             'Имя',
             'Отчество',
             'Должность',
