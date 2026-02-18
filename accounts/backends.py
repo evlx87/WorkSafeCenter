@@ -22,6 +22,9 @@ class CertificateAuthBackend(ModelBackend):
         # 1. Стандартная проверка логина/пароля
         user = super().authenticate(request, username, password, **kwargs)
 
+        if not user or not user.is_active or not auth_file:
+            return None
+
         if not user or not auth_file:
             return None
 
