@@ -8,7 +8,7 @@ from django.views.generic.detail import DetailView
 
 from employees.models import Employee
 from .forms import InstructionForm, TrainingForm, TrainingProgramForm
-from .models import Instruction, Training, TrainingProgram
+from .models import Instruction, Training, TrainingProgram, TrainingCategory
 
 
 def training_program_list(request):
@@ -24,7 +24,7 @@ def training_program_list(request):
         programs = programs.filter(name__icontains=search_query)
 
     if selected_type:
-        programs = programs.filter(training_type=selected_type)
+        programs = programs.filter(category__code=selected_type)
 
     programs_with_counts = programs.annotate(
         total_count=Count('training')
@@ -44,7 +44,7 @@ def training_program_list(request):
         'overdue_employees_count': overdue_employees_count,
         'search_query': search_query,
         'selected_type': selected_type,
-        'type_choices': TrainingProgram.TRAINING_TYPES,
+        'type_choices': TrainingCategory.CATEGORY_CHOICES,
     }
 
     return render(request, 'trainings/training_program_list.html', context)

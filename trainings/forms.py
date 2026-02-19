@@ -7,13 +7,13 @@ class TrainingProgramForm(forms.ModelForm):
     class Meta:
         model = TrainingProgram
         fields = [
-            'training_type',
+            'category',
             'is_mandatory',
             'name',
             'hours',
             'frequency_months']
         widgets = {
-            'training_type': forms.Select(
+            'category': forms.Select(
                 attrs={
                     'class': 'form-control'}),
             'is_mandatory': forms.CheckboxInput(
@@ -55,7 +55,6 @@ class TrainingForm(forms.ModelForm):
             'training_date',
             'document_scan',
             'document_type',
-            'program_name_in_document',
             'document_number'
         ]
         widgets = {
@@ -70,9 +69,6 @@ class TrainingForm(forms.ModelForm):
                     'class': 'form-control',
                     'type': 'date'}),
             'document_type': forms.Select(
-                attrs={
-                    'class': 'form-control'}),
-            'program_name_in_document': forms.TextInput(
                 attrs={
                     'class': 'form-control'}),
             'document_number': forms.TextInput(
