@@ -8,6 +8,61 @@ from .validators import validate_pdf_or_image
 
 
 # Create your models here.
+class TrainingCategory(models.Model):
+    """Единый справочник категорий обучения"""
+    # Основные категории
+    SAFETY = 'SAFETY'
+    FIRE = 'FIRE'
+    FIRST_AID = 'FIRST_AID'
+    ELECTRICAL = 'ELECTRICAL'
+    CIVIL_DEFENSE = 'CIVIL_DEFENSE'  # Гражданская оборона
+    ROAD_SAFETY = 'ROAD_SAFETY'  # Безопасность дорожного движения
+    WORKING_HEIGHT = 'WORKING_HEIGHT'
+    ANTITERROR = 'ANTITERROR'
+    ENVIRONMENTAL = 'ENVIRONMENTAL'  # Экологическая безопасность
+    OTHER = 'OTHER'
+
+    CATEGORY_CHOICES = [
+        (SAFETY, 'Охрана труда'),
+        (FIRE, 'Пожарная безопасность'),
+        (FIRST_AID, 'Первая помощь'),
+        (ELECTRICAL, 'Электробезопасность'),
+        (CIVIL_DEFENSE, 'Гражданская оборона'),
+        (ROAD_SAFETY, 'Безопасность дорожного движения'),
+        (WORKING_HEIGHT, 'Работы на высоте'),
+        (ANTITERROR, 'Антитеррористическая защищенность'),
+        (ENVIRONMENTAL, 'Экологическая безопасность'),
+        (OTHER, 'Другое'),
+    ]
+
+    code = models.CharField(
+        max_length=50,
+        choices=CATEGORY_CHOICES,
+        unique=True,
+        verbose_name="Код категории"
+    )
+    name = models.CharField(
+        max_length=200,
+        verbose_name="Название категории"
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name="Описание"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Активна"
+    )
+
+    class Meta:
+        verbose_name = "Категория обучения"
+        verbose_name_plural = "Категории обучения"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class InstructionType(models.Model):
     CATEGORY_CHOICES = (
         ('SAFETY', 'Охрана труда'),
@@ -48,46 +103,95 @@ class InstructionType(models.Model):
 
 
 class TrainingProgram(models.Model):
-    TRAINING_TYPES = (
-        ('SAFETY', 'Охрана труда'),
-        ('FIRE', 'Пожарная безопасность'),
-        ('FIRST_AID', 'Первая помощь'),
-        ('WORKING_HEIGHT', 'Работы на высоте'),
-        ('OTHER', 'Другое'),
-    )
-    training_type = models.CharField(
-        max_length=20,
-        choices=TRAINING_TYPES,
-        verbose_name="Вид обучения",
-        default='SAFETY'
-    )
-    is_mandatory = models.BooleanField(
-        default=True,
-        verbose_name="Обязательность для всех",
-        help_text="Если не обязательна, применяется только к указанным должностям.")
+    """Программа обучения"""
     name = models.CharField(
         max_length=255,
         unique=True,
-        verbose_name="Наименование программы"
-    )
+        verbose_name="Наименование программы")
+    category = models.ForeignKey(
+        TrainingCategory,
+        on_delete=models.PROTECT,
+        verbose_name="Категория")
     hours = models.PositiveIntegerField(
-        verbose_name="Количество часов"
-    )
+        verbose_name="Количество часов")
     frequency_months = models.PositiveIntegerField(
+        default=0,
         verbose_name="Периодичность (в месяцах)",
-        help_text="Через сколько месяцев необходимо повторное обучение. 0 - если не требуется.",
-        default=0)
+        help_text="0 - если повторное обучение не требуется")
+    is_mandatory = models.BooleanField(
+        default=False,
+        verbose_name="Обязательна для всех сотрудников")
+    target_positions = models.ManyToManyField(
+        'organization.Position',
+        blank=True,
+        verbose_name="Целевые должности",
+        help_text="Если не обязательна для всех, укажите для каких должностей")
+    description = models.TextField(
+        blank=True,
+        verbose_name="Описание программы")
 
     class Meta:
         verbose_name = "Программа обучения"
         verbose_name_plural = "Программы обучения"
-        ordering = ['name']
+        ordering = ['category', 'name']
 
     def __str__(self):
-        return f"{self.name} ({self.hours} ч.)"
+        return f"{self.name} ({self.category.name})"
+
+
+class ElectricalSafetyGroup(models.Model):
+    """Группы по электробезопасности"""
+
+    GROUP_CHOICES = [
+        (1, 'I группа'),
+        (2, 'II группа'),
+        (3, 'III группа'),
+        (4, 'IV группа'),
+        (5, 'V группа'),
+    ]
+
+    employee = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.CASCADE,
+        verbose_name="Сотрудник"
+    )
+    group_number = models.PositiveSmallIntegerField(
+        choices=GROUP_CHOICES,
+        verbose_name="Группа по электробезопасности"
+    )
+    assignment_date = models.DateField(
+        verbose_name="Дата присвоения группы"
+    )
+    valid_until = models.DateField(
+        verbose_name="Действительна до",
+        null=True,
+        blank=True
+    )
+    document_number = models.CharField(
+        max_length=100,
+        verbose_name="Номер протокола/удостоверения",
+        blank=True
+    )
+    document_scan = models.FileField(
+        upload_to='electrical_safety/',
+        null=True,
+        blank=True,
+        verbose_name="Скан документа"
+    )
+
+    class Meta:
+        verbose_name = "Группа по электробезопасности"
+        verbose_name_plural = "Группы по электробезопасности"
+        ordering = ['-assignment_date']
+        unique_together = ['employee', 'group_number']
+
+    def __str__(self):
+        return f"{self.employee} - {self.get_group_number_display()}"
 
 
 class Training(models.Model):
+    """Запись о прохождении обучения сотрудником"""
+
     DOCUMENT_TYPES = [
         ('PROTOCOL', 'Протокол проверки знаний'),
         ('CERT_QUAL', 'Удостоверение о повышении квалификации'),
@@ -95,36 +199,25 @@ class Training(models.Model):
         ('DIPLOMA', 'Диплом о профессиональной переподготовке'),
     ]
 
-    TRAINING_CATEGORY = [
-        ('SAFETY', 'Охрана труда'),
-        ('FIRE', 'Пожарная безопасность'),
-        ('FIRST_AID', 'Первая помощь'),
-        ('ELECTRICAL', 'Электробезопасность'),
-        ('ANTITERROR', 'Антитеррористическая защищенность'),
-        ('OTHER', 'Другое'),
-    ]
-
+    employee = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.CASCADE,
+        related_name='trainings',
+        verbose_name="Сотрудник"
+    )
     program = models.ForeignKey(
         TrainingProgram,
         on_delete=models.PROTECT,
         verbose_name="Программа обучения"
     )
-
-    employee = models.ForeignKey(
-        Employee,
-        on_delete=models.CASCADE,
-        related_name='trainings',
-        verbose_name="Работник"
-    )
     training_date = models.DateField(
         verbose_name="Дата прохождения"
     )
-    document_scan = models.FileField(
-        upload_to='training_documents/',
-        validators=[validate_pdf_or_image],
-        verbose_name="Скан документа (PDF/JPG/PNG)",
+    next_training_date = models.DateField(
+        verbose_name="Следующее обучение",
         null=True,
-        blank=True
+        blank=True,
+        editable=False
     )
     document_type = models.CharField(
         max_length=20,
@@ -133,24 +226,20 @@ class Training(models.Model):
         null=True,
         blank=True
     )
-
-    program_name_in_document = models.CharField(
-        max_length=255,
-        verbose_name="Название программы в документе",
-        blank=True,
-        help_text="Как программа называется в удостоверении/сертификате"
-    )
     document_number = models.CharField(
         max_length=100,
         verbose_name="Номер документа",
         blank=True
     )
-
-    training_category = models.CharField(
-        max_length=20,
-        choices=TRAINING_CATEGORY,
-        verbose_name="Категория обучения",
-        default='OTHER'
+    document_scan = models.FileField(
+        upload_to='training_documents/',
+        null=True,
+        blank=True,
+        verbose_name="Скан документа"
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name="Примечания"
     )
 
     class Meta:
@@ -159,7 +248,16 @@ class Training(models.Model):
         ordering = ['-training_date']
 
     def __str__(self):
-        return f"{self.program.name} - {self.employee}"
+        return f"{self.employee} - {self.program.name}"
+
+    def save(self, *args, **kwargs):
+        # Автоматический расчет даты следующего обучения
+        if self.program.frequency_months > 0:
+            from dateutil.relativedelta import relativedelta
+            self.next_training_date = self.training_date + relativedelta(
+                months=self.program.frequency_months
+            )
+        super().save(*args, **kwargs)
 
 
 class Instruction(models.Model):
@@ -229,7 +327,6 @@ class Instruction(models.Model):
         return f"{self.instruction_type.name} - {self.employee}"
 
 
-# trainings/models.py
 class ProgramNameMapping(models.Model):
     """Сопоставление разных названий программ к стандартной программе"""
 

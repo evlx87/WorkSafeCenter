@@ -1,144 +1,77 @@
 from django.core.management.base import BaseCommand
-
-from trainings.models import TrainingProgram, InstructionType
+from trainings.models import TrainingCategory, TrainingProgram
 
 
 class Command(BaseCommand):
-    help = 'Заполняет базу данных начальными программами обучения и типами инструктажей согласно требованиям.'
+    help = 'Заполняет базу данных категориями и стандартными программами обучения'
 
     def handle(self, *args, **kwargs):
-        self.stdout.write('Начинаем настройку справочников обучения...')
+        # 1. Создаем категории
+        categories_data = [
+            ('SAFETY', 'Охрана труда', 'Обучение по охране труда'),
+            ('FIRE', 'Пожарная безопасность', 'Противопожарные инструктажи и обучение'),
+            ('FIRST_AID', 'Первая помощь', 'Оказание первой помощи пострадавшим'),
+            ('ELECTRICAL', 'Электробезопасность', 'Обучение по электробезопасности'),
+            ('CIVIL_DEFENSE', 'Гражданская оборона', 'ГО и действия в ЧС'),
+            ('ROAD_SAFETY', 'Безопасность дорожного движения', 'Обучение по БДД'),
+            ('WORKING_HEIGHT', 'Работы на высоте', 'Обучение работам на высоте'),
+            ('ANTITERROR', 'Антитеррористическая защищенность', 'Антитеррористическая безопасность'),
+            ('ENVIRONMENTAL', 'Экологическая безопасность', 'Экологическая безопасность'),
+            ('OTHER', 'Другое', 'Прочие виды обучения'),
+        ]
 
-        # ==========================================
-        # 1. Программы обучения (Курсы / ДПО)
-        # ==========================================
+        categories = {}
+        for code, name, desc in categories_data:
+            cat, created = TrainingCategory.objects.get_or_create(
+                code=code,
+                defaults={'name': name, 'description': desc}
+            )
+            categories[code] = cat
+            if created:
+                self.stdout.write(self.style.SUCCESS(f'Создана категория: {name}'))
 
-        # Список программ на основе вашего ТЗ
+        # 2. Создаем стандартные программы
         programs_data = [
-            {
-                'name': 'Охрана труда для руководителей и специалистов',
-                'training_type': 'SAFETY',
-                'hours': 40,
-                'frequency_months': 36,  # 1 раз в 3 года
-                # False, т.к. назначаем только руководителям и комиссии (через
-                # services.py)
-                'is_mandatory': False,
-                'defaults': {}
-            },
-            {
-                'name': 'Электробезопасность (для всего персонала)',
-                'training_type': 'OTHER',  # Используем OTHER или добавьте ELECTRICAL в choices модели
-                'hours': 16,  # Стандартное кол-во часов, можно менять
-                'frequency_months': 12,  # Каждый год
-                'is_mandatory': True,  # True, так как обучают "весь персонал"
-                'defaults': {}
-            },
-            {
-                'name': 'Оказание первой помощи пострадавшим',
-                'training_type': 'FIRST_AID',
-                'hours': 8,
-                'frequency_months': 12,  # Каждый год
-                'is_mandatory': False,  # False, т.к. только руков., замы и педагоги
-                'defaults': {}
-            },
-            {
-                'name': 'Пожарная безопасность (для руководителей)',
-                'training_type': 'FIRE',
-                'hours': 16,
-                'frequency_months': 60,  # 1 раз в 5 лет
-                'is_mandatory': False,  # False, т.к. только руководители и замы
-                'defaults': {}
-            }
+            # Охрана труда
+            ('Охрана труда для руководителей и специалистов', 'SAFETY', 40, 36, False),
+            ('Охрана труда для рабочих профессий', 'SAFETY', 24, 24, False),
+
+            # Пожарная безопасность
+            ('Пожарная безопасность для руководителей', 'FIRE', 16, 60, False),
+            ('Пожарная безопасность для рабочих', 'FIRE', 8, 12, True),
+
+            # Первая помощь
+            ('Оказание первой помощи пострадавшим', 'FIRST_AID', 8, 12, False),
+
+            # Электробезопасность
+            ('Электробезопасность - группа 1', 'ELECTRICAL', 16, 12, True),
+            ('Электробезопасность - группа 2', 'ELECTRICAL', 72, 12, False),
+            ('Электробезопасность - группа 3', 'ELECTRICAL', 144, 12, False),
+            ('Электробезопасность - группа 4', 'ELECTRICAL', 144, 12, False),
+
+            # Гражданская оборона
+            ('Действия в чрезвычайных ситуациях', 'CIVIL_DEFENSE', 8, 24, False),
+            ('Противодействие терроризму', 'CIVIL_DEFENSE', 8, 24, False),
+
+            # БДД
+            ('БДД для ответственных за БДД', 'ROAD_SAFETY', 40, 36, False),
+
+            # Экологическая безопасность
+            ('Экологическая безопасность', 'ENVIRONMENTAL', 16, 24, False),
+
+            # Антитерроризм
+            ('Антитеррористическая защищенность', 'ANTITERROR', 16, 24, False),
         ]
 
-        for prog in programs_data:
-            obj, created = TrainingProgram.objects.get_or_create(
-                name=prog['name'],
+        for name, cat_code, hours, freq, mandatory in programs_data:
+            prog, created = TrainingProgram.objects.get_or_create(
+                name=name,
                 defaults={
-                    'training_type': prog['training_type'],
-                    'hours': prog['hours'],
-                    'frequency_months': prog['frequency_months'],
-                    'is_mandatory': prog['is_mandatory']
+                    'category': categories[cat_code],
+                    'hours': hours,
+                    'frequency_months': freq,
+                    'is_mandatory': mandatory
                 }
             )
             if created:
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f'Создана программа: {
-                            obj.name}'))
-            else:
-                self.stdout.write(f'Программа уже существует: {obj.name}')
-
-        # ==========================================
-        # 2. Типы инструктажей
-        # ==========================================
-
-        instructions_data = [
-            # --- Охрана труда ---
-            {
-                'name': 'Вводный инструктаж по охране труда',
-                'category': 'SAFETY',
-                'type_name': 'Вводный',
-                'frequency_months': 0,  # Разовый
-            },
-            {
-                'name': 'Первичный инструктаж по охране труда на рабочем месте',
-                'category': 'SAFETY',
-                'type_name': 'Первичный',
-                # Обычно проводится один раз при приеме (или переводе)
-                'frequency_months': 0,
-            },
-            {
-                'name': 'Повторный инструктаж по охране труда',
-                'category': 'SAFETY',
-                'type_name': 'Повторный',
-                'frequency_months': 6,  # Стандартно раз в 6 месяцев
-            },
-
-            # --- Пожарная безопасность ---
-            {
-                'name': 'Вводный инструктаж по пожарной безопасности',
-                'category': 'FIRE',
-                'type_name': 'Вводный',
-                'frequency_months': 0,
-            },
-            {
-                'name': 'Повторный инструктаж по пожарной безопасности',
-                'category': 'FIRE',
-                'type_name': 'Повторный',
-                # Стандартно раз в 6 месяцев (или 12 для некоторых категорий)
-                'frequency_months': 6,
-            },
-
-            # --- Электробезопасность (Инструктаж для неэлектротехнического персонала - 1 группа) ---
-            {
-                'name': 'Инструктаж по электробезопасности (1 группа)',
-                'category': 'ELECTRICAL',
-                'type_name': 'Ежегодный',
-                'frequency_months': 12,
-            },
-        ]
-
-        for instr in instructions_data:
-            # Используем update_or_create, чтобы обновить параметры, если
-            # запись уже есть
-            obj, created = InstructionType.objects.get_or_create(
-                category=instr['category'],
-                type_name=instr['type_name'],
-                defaults={
-                    'name': instr['name'],
-                    'frequency_months': instr['frequency_months']
-                }
-            )
-            if created:
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f'Создан тип инструктажа: {
-                            obj.name}'))
-            else:
-                self.stdout.write(
-                    f'Тип инструктажа уже существует: {
-                        obj.name}')
-
-        self.stdout.write(self.style.SUCCESS(
-            '\nНастройка данных завершена успешно!'))
+                self.stdout.write(self.style.SUCCESS(f'  Создана программа: {name}'))

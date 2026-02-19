@@ -216,3 +216,4 @@ __marimo__/
 *.jpg
 keys/
 *.key
+data/*
