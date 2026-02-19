@@ -269,7 +269,7 @@ class Instruction(models.Model):
     )
 
     employee = models.ForeignKey(
-        Employee,
+        'employees.Employee',
         on_delete=models.CASCADE,
         related_name='instructions',
         verbose_name="Работник")
@@ -287,7 +287,7 @@ class Instruction(models.Model):
         verbose_name="Инструктор")
 
     basis_document = models.ForeignKey(
-        Document,
+        'documents.Document',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -337,7 +337,7 @@ class ProgramNameMapping(models.Model):
     )
 
     standard_program = models.ForeignKey(
-        TrainingProgram,
+        'TrainingProgram',
         on_delete=models.CASCADE,
         verbose_name="Стандартная программа",
         null=True,
@@ -346,7 +346,7 @@ class ProgramNameMapping(models.Model):
 
     training_category = models.CharField(
         max_length=20,
-        choices=Training.TRAINING_CATEGORY,
+        choices=TrainingCategory.CATEGORY_CHOICES,
         verbose_name="Категория обучения"
     )
 
@@ -358,6 +358,4 @@ class ProgramNameMapping(models.Model):
         unique_together = ['variant_name', 'training_category']
 
     def __str__(self):
-        return f'"{
-            self.variant_name}" → {
-            self.get_training_category_display()}'
+        return f'"{self.variant_name}" → {self.get_training_category_display()}'

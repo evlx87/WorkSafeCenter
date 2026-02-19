@@ -42,7 +42,7 @@ class DocumentListView(ListView):
 
 class DocumentCreateView(CreateView):
     model = Document
-    form_class = DocumentForm
+    fields = ['title', 'document_type', 'category', 'file', 'external_link', 'end_date', 'employee']
     template_name = 'documents/document_form.html'
     success_url = reverse_lazy('documents:documents_list')
 
