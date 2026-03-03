@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import openpyxl
 from django.core.files import File
@@ -8,12 +9,11 @@ from django.utils.dateparse import parse_date
 
 from employees.models import Employee
 from organization.models import OrganizationSafetyInfo, Site, Department, Position
-from trainings.models import TrainingProgram, Training, Instruction, InstructionType, ProgramNameMapping, \
-    TrainingCategory
+from trainings.models import TrainingProgram, Training, TrainingCategory
 
 
 class Command(BaseCommand):
-    help = 'Импорт данных организации и сотрудников из Excel файла (корректная структура)'
+    help = 'Импорт данных организации и сотрудников из Excel файла (исправленная версия)'
 
     def add_arguments(self, parser):
         parser.add_argument('file_path', type=str, help='Путь к Excel файлу')
@@ -22,460 +22,653 @@ class Command(BaseCommand):
             type=str,
             help='Папка с PDF-файлами удостоверений и сканов'
         )
+        parser.add_argument(
+            '--dry-run',
+            action='store_true',
+            help='Режим проверки без сохранения изменений'
+        )
 
     def _parse_date(self, value):
-        """Безопасный парсинг даты из разных форматов"""
+        """Безопасный парсинг даты из разных форматов Excel"""
         if not value:
             return None
         try:
+            if isinstance(value, datetime):
+                return value.date()
             if isinstance(value, str):
+                value = value.strip()
+                if not value:
+                    return None
+                date_formats = [
+                    '%Y-%m-%d',
+                    '%d.%m.%Y',
+                    '%d-%m-%Y',
+                    '%Y/%m/%d',
+                    '%d/%m/%Y']
+                for fmt in date_formats:
+                    try:
+                        return datetime.strptime(value, fmt).date()
+                    except ValueError:
+                        continue
                 return parse_date(value)
-            return value.date() if hasattr(value, 'date') else value
-        except BaseException:
+            if isinstance(value, (int, float)):
+                from datetime import timedelta
+                excel_epoch = datetime(1899, 12, 30)
+                return (excel_epoch + timedelta(days=value)).date()
+        except Exception as e:
+            self.stdout.write(
+                self.style.WARNING(
+                    f'⚠️ Не удалось распарсить дату: {value} ({e})'))
             return None
+        return None
+
+    def _parse_boolean(self, value):
+        """Безопасный парсинг булевых значений"""
+        if not value:
+            return False
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return str(value).strip().lower() in (
+                'да', 'yes', 'true', '1', '+')
+        return bool(value)
+
+    def _get_cell_value(self, row, index, default=None):
+        """Безопасное получение значения ячейки"""
+        try:
+            if len(row) > index and row[index] is not None:
+                value = row[index]
+                if isinstance(value, str):
+                    return value.strip() if value.strip() else default
+                return value
+            return default
+        except Exception:
+            return default
+
+    def _find_or_create_program(self, program_name_raw, category_code):
+        """
+        Умный поиск программы с ОБЯЗАТЕЛЬНЫМ ограничением длины имени
+        """
+        if not program_name_raw:
+            return None
+
+        program_name_raw = str(program_name_raw).strip()
+
+        # 🔧 ВАЖНОЕ ИСПРАВЛЕНИЕ 1: Обрезаем название до 255 символов
+        # чтобы не было ошибки базы данных
+        program_name_safe = program_name_raw[:255] if len(
+            program_name_raw) > 255 else program_name_raw
+
+        # 1. Точный поиск (по обрезанному имени)
+        program = TrainingProgram.objects.filter(
+            name__iexact=program_name_safe).first()
+        if program:
+            return program
+
+        # 2. Поиск по ключевым словам (маппинг длинных названий на короткие)
+        keywords_map = {
+            'SAFETY': ['охрана труда', 'сут', 'безопасность труда'],
+            'FIRE': ['пожарная безопасность', 'пожарно-технический', 'пб'],
+            'FIRST_AID': ['первая помощь', 'мед. помощь'],
+            'ELECTRICAL': ['электробезопасность', 'пуэ', 'потэу', 'птээп', 'группа'],
+            'ANTITERROR': ['антитеррор', 'терроризм'],
+            'CIVIL_DEFENSE': ['гражданская оборона', 'го и чс', 'чрезвычайных ситуациях'],
+            'ROAD_SAFETY': ['безопасность дорожного движения', 'бдд'],
+            'CORRUPTION': ['коррупция', 'закупок'],
+            'PEDAGOGICAL': ['педагогических работников', 'педагог'],
+        }
+
+        target_category = TrainingCategory.objects.filter(
+            code=category_code).first()
+        if not target_category:
+            target_category, _ = TrainingCategory.objects.get_or_create(
+                code=category_code,
+                defaults={'name': category_code}
+            )
+
+        name_lower = program_name_raw.lower()
+
+        # Проверяем ключевые слова для категории
+        if category_code in keywords_map:
+            for keyword in keywords_map[category_code]:
+                if keyword in name_lower:
+                    # Ищем стандартную программу с таким ключевым словом
+                    std_prog = TrainingProgram.objects.filter(
+                        category=target_category,
+                        name__icontains=keyword
+                    ).first()
+                    if std_prog:
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f'   ↳ Найдено совпадение по ключу "{keyword}": {
+                                    std_prog.name}'))
+                        return std_prog
+
+        # 3. Если не нашли - создаем новую программу с ОБРЕЗАННЫМ названием
+        self.stdout.write(self.style.WARNING(
+            f'   ↳ Программа не найдена. Создаем новую: "{program_name_safe[:50]}..."'))
+        program, _ = TrainingProgram.objects.get_or_create(
+            name=program_name_safe,  # 🔧 Используем безопасную длину
+            defaults={
+                'category': target_category,
+                'hours': 16,
+                'frequency_months': 12,
+                'is_mandatory': False
+            }
+        )
+        return program
+
+    def _find_employee(self, fio_string):
+        """
+        Усовершенствованный поиск сотрудника.
+        """
+        if not fio_string:
+            return None
+
+        fio_parts = str(fio_string).strip().split()
+        if len(fio_parts) < 2:
+            return None
+
+        # Вариант 1: Полное совпадение (Фамилия Имя Отчество)
+        if len(fio_parts) >= 3:
+            ln, fn, mn = fio_parts[0], fio_parts[1], " ".join(fio_parts[2:])
+            emp = Employee.objects.filter(
+                (Q(last_name__iexact=ln) | Q(previous_last_name__iexact=ln)),
+                first_name__iexact=fn,
+                middle_name__iexact=mn
+            ).first()
+            if emp:
+                return emp
+
+        # Вариант 2: Только Фамилия + Имя (игнорируем отчество)
+        ln, fn = fio_parts[0], fio_parts[1]
+        emp = Employee.objects.filter(
+            (Q(last_name__iexact=ln) | Q(previous_last_name__iexact=ln)),
+            first_name__iexact=fn
+        ).first()
+
+        if emp:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'   ↳ Сотрудник найден по Фамилии+Имени: {emp}'))
+            return emp
+
+        return None
 
     def handle(self, *args, **options):
         path = options['file_path']
         scans_dir = options.get('scans-dir')
+        dry_run = options.get('dry-run', False)
 
         if not os.path.exists(path):
-            raise CommandError(f'Файл не найден: {path}')
+            raise CommandError(f'❌ Файл не найден: {path}')
 
         try:
-            wb = openpyxl.load_workbook(path)
+            wb = openpyxl.load_workbook(path, data_only=True)
         except Exception as e:
-            raise CommandError(f'Ошибка открытия Excel файла: {e}')
+            raise CommandError(f'❌ Ошибка открытия Excel файла: {e}')
 
-        # ==========================================
-        # 0. Организация (ТОЛЬКО существующие поля модели)
-        # ==========================================
-        try:
-            ws_org = wb["0. Организация"]
-            for row in ws_org.iter_rows(min_row=2, values_only=True):
-                if row[0]:  # Полное название
-                    # Читаем ТОЛЬКО существующие поля модели
-                    defaults = {
-                        'name_full': str(row[0]).strip() if row[0] else '',
-                        'inn': str(row[1]).strip() if len(row) > 1 and row[1] else '',
-                        'kpp': str(row[2]).strip() if len(row) > 2 and row[2] else '',
-                        'ogrn': str(row[3]).strip() if len(row) > 3 and row[3] else '',
-                        'address_legal': str(row[4]).strip() if len(row) > 4 and row[4] else '',
-                        'contact_phone': str(row[5]).strip()[:20] if len(row) > 5 and row[5] else '',
-                        # Обрезаем до 20 символов
-                    }
-
-                    # Используем метод синглтона
-                    org = OrganizationSafetyInfo.load_organization()
-                    for key, value in defaults.items():
-                        setattr(org, key, value)
-                    org.save()
-
-                    self.stdout.write(
-                        self.style.SUCCESS(
-                            f'✅ Организация: {
-                                row[0]}'))
-                    break
-        except KeyError:
+        self.stdout.write(self.style.SUCCESS(f'✅ Файл загружен: {path}'))
+        if dry_run:
             self.stdout.write(self.style.WARNING(
-                '⚠️ Лист "0. Организация" не найден — пропускаем'))
+                '⚠️ РЕЖИМ ПРОВЕРКИ (dry-run) - изменения не сохраняются'))
+
+        # ==========================================
+        # 0. Организация
+        # ==========================================
+        org = None
+        try:
+            if "0. Организация" in wb.sheetnames:
+                ws_org = wb["0. Организация"]
+                for row in ws_org.iter_rows(min_row=2, values_only=True):
+                    if self._get_cell_value(row, 0):
+                        defaults = {
+                            'name_full': str(self._get_cell_value(row, 0, '')).strip()[:255],
+                            'inn': str(self._get_cell_value(row, 1, '')).strip()[:12],
+                            'kpp': str(self._get_cell_value(row, 2, '')).strip()[:9],
+                            'ogrn': str(self._get_cell_value(row, 3, '')).strip()[:15],
+                            'address_legal': str(self._get_cell_value(row, 4, '')).strip()[:255],
+                            'contact_phone': str(self._get_cell_value(row, 5, '')).strip()[:20],
+                        }
+                        if not dry_run:
+                            org = OrganizationSafetyInfo.load_organization()
+                            for key, value in defaults.items():
+                                setattr(org, key, value)
+                            org.save()
+                        else:
+                            org = type('Org', (), defaults)()
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f'✅ Организация: {
+                                    defaults["name_full"]}'))
+                        break
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(
+                    f'❌ Ошибка при импорте организации: {e}'))
 
         # ==========================================
         # 1. Площадки
         # ==========================================
-        org = OrganizationSafetyInfo.load_organization()
         sites_created = 0
         try:
-            ws_sites = wb["1. Площадки"]
-            for row in ws_sites.iter_rows(min_row=2, values_only=True):
-                if row[0] and org:
-                    Site.objects.get_or_create(
-                        name=str(
-                            row[0]).strip(), organization=org, defaults={
-                            'address': str(
-                                row[1]).strip() if len(row) > 1 and row[1] else '', 'ot_responsible_name': str(
-                                row[2]).strip() if len(row) > 2 and row[2] else ''})
-                    sites_created += 1
+            if "1. Площадки" in wb.sheetnames:
+                ws_sites = wb["1. Площадки"]
+                for row in ws_sites.iter_rows(min_row=2, values_only=True):
+                    if self._get_cell_value(row, 0):
+                        if not dry_run:
+                            Site.objects.get_or_create(
+                                name=str(
+                                    self._get_cell_value(
+                                        row, 0, '')).strip(), organization=org, defaults={
+                                    'address': str(
+                                        self._get_cell_value(
+                                            row, 1, '')).strip()[
+                                        :255], 'ot_responsible_name': str(
+                                        self._get_cell_value(
+                                            row, 2, '')).strip()[
+                                        :200], })
+                        sites_created += 1
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f'✅ Площадки: {sites_created} шт.'))
+        except Exception as e:
             self.stdout.write(
-                self.style.SUCCESS(
-                    f'✅ Площадки: {sites_created} шт.'))
-        except KeyError:
-            self.stdout.write(self.style.WARNING(
-                '⚠️ Лист "1. Площадки" не найден — пропускаем'))
+                self.style.ERROR(
+                    f'❌ Ошибка при импорте площадок: {e}'))
 
         # ==========================================
         # 2. Подразделения
         # ==========================================
         deps_created = 0
         try:
-            ws_deps = wb["2. Подразделения"]
-            for row in ws_deps.iter_rows(min_row=2, values_only=True):
-                if row[0]:
-                    parent = None
-                    if len(row) > 2 and row[2]:
-                        parent = Department.objects.filter(
-                            name=str(row[2]).strip()).first()
-
-                    dept, created = Department.objects.get_or_create(
-                        name=str(row[0]).strip(),
-                        defaults={
-                            'description': str(row[1]).strip() if len(row) > 1 and row[1] else '',
-                            'parent': parent
-                        }
-                    )
-                    if created:
-                        deps_created += 1
+            if "2. Подразделения" in wb.sheetnames:
+                ws_deps = wb["2. Подразделения"]
+                for row in ws_deps.iter_rows(min_row=2, values_only=True):
+                    if self._get_cell_value(row, 0):
+                        parent = None
+                        if self._get_cell_value(row, 2):
+                            parent = Department.objects.filter(
+                                name=str(self._get_cell_value(row, 2)).strip()).first()
+                        if not dry_run:
+                            dept, created = Department.objects.get_or_create(
+                                name=str(
+                                    self._get_cell_value(
+                                        row, 0, '')).strip(), defaults={
+                                    'description': str(
+                                        self._get_cell_value(
+                                            row, 1, '')).strip(), 'parent': parent})
+                            if created:
+                                deps_created += 1
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f'✅ Подразделения: {deps_created} шт.'))
+        except Exception as e:
             self.stdout.write(
-                self.style.SUCCESS(
-                    f'✅ Подразделения: {deps_created} шт.'))
-        except KeyError:
-            self.stdout.write(self.style.WARNING(
-                '⚠️ Лист "2. Подразделения" не найден — пропускаем'))
+                self.style.ERROR(
+                    f'❌ Ошибка при импорте подразделений: {e}'))
 
         # ==========================================
         # 3. Должности
         # ==========================================
         pos_created = 0
         try:
-            ws_pos = wb["3. Должности"]
-            for row in ws_pos.iter_rows(min_row=2, values_only=True):
-                if row[0]:
-                    dept = None
-                    if len(row) > 1 and row[1]:
-                        dept = Department.objects.filter(
-                            name=str(row[1]).strip()).first()
-
-                    pos, created = Position.objects.get_or_create(
-                        name=str(
-                            row[0]).strip(), defaults={
-                            'department': dept, 'description': str(
-                                row[2]).strip() if len(row) > 2 and row[2] else ''})
-                    if created:
-                        pos_created += 1
+            if "3. Должности" in wb.sheetnames:
+                ws_pos = wb["3. Должности"]
+                for row in ws_pos.iter_rows(min_row=2, values_only=True):
+                    if self._get_cell_value(row, 0):
+                        dept = None
+                        if self._get_cell_value(row, 1):
+                            dept = Department.objects.filter(
+                                name=str(self._get_cell_value(row, 1)).strip()).first()
+                        if not dry_run:
+                            pos, created = Position.objects.get_or_create(
+                                name=str(
+                                    self._get_cell_value(
+                                        row, 0, '')).strip(), defaults={
+                                    'department': dept, 'description': str(
+                                        self._get_cell_value(
+                                            row, 2, '')).strip()})
+                            if created:
+                                pos_created += 1
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f'✅ Должности: {pos_created} шт.'))
+        except Exception as e:
             self.stdout.write(
-                self.style.SUCCESS(
-                    f'✅ Должности: {pos_created} шт.'))
-        except KeyError:
-            self.stdout.write(self.style.WARNING(
-                '⚠️ Лист "3. Должности" не найден — пропускаем'))
+                self.style.ERROR(
+                    f'❌ Ошибка при импорте должностей: {e}'))
 
         # ==========================================
         # 4. Сотрудники
         # ==========================================
         emp_created = 0
         emp_updated = 0
-        employees_by_fio = {}  # Для последующей привязки инструктажей и обучения
-
         try:
+            if "4. Сотрудники" not in wb.sheetnames:
+                raise CommandError(
+                    '❌ Критическая ошибка: Лист "4. Сотрудники" не найден!')
+
             ws_emp = wb["4. Сотрудники"]
-            for row in ws_emp.iter_rows(min_row=2, values_only=True):
-                if not row[0] or not row[2]:
+            for row_idx, row in enumerate(
+                ws_emp.iter_rows(
+                    min_row=2, values_only=True), start=2):
+                if not self._get_cell_value(
+                        row,
+                        0) or not self._get_cell_value(
+                        row,
+                        2):
                     continue
+                try:
+                    birth_date = self._parse_date(self._get_cell_value(row, 6))
+                    hire_date = self._parse_date(self._get_cell_value(row, 7))
+                    termination_date = self._parse_date(
+                        self._get_cell_value(row, 18))
 
-                # Парсинг дат
-                birth_date = self._parse_date(
-                    row[6]) if len(row) > 6 else None
-                hire_date = self._parse_date(
-                    row[7]) if len(row) > 7 else None
-                termination_date = self._parse_date(
-                    row[18]) if len(row) > 18 else None
+                    position = None
+                    if self._get_cell_value(row, 4):
+                        position = Position.objects.filter(
+                            name=str(self._get_cell_value(row, 4)).strip()).first()
 
-                # Поиск должности и отдела
-                position = None
-                if len(row) > 4 and row[4]:
-                    position = Position.objects.filter(
-                        name=str(row[4]).strip()).first()
+                    department = None
+                    if self._get_cell_value(row, 5):
+                        department = Department.objects.filter(
+                            name=str(self._get_cell_value(row, 5)).strip()).first()
 
-                department = None
-                if len(row) > 5 and row[5]:
-                    department = Department.objects.filter(
-                        name=str(row[5]).strip()).first()
-
-                # Создание/обновление сотрудника
-                emp, created = Employee.objects.update_or_create(
-                    last_name=str(row[0]).strip(),
-                    first_name=str(row[2]).strip(),
-                    defaults={
-                        'middle_name': str(row[3]).strip() if len(row) > 3 and row[3] else '',
-                        'previous_last_name': str(row[1]).strip() if len(row) > 1 and row[1] else '',
+                    defaults = {
+                        'middle_name': str(self._get_cell_value(row, 3, '')).strip()[:100],
+                        'previous_last_name': str(self._get_cell_value(row, 1, '')).strip()[:100],
                         'position': position,
                         'department': department,
                         'birth_date': birth_date,
                         'hire_date': hire_date,
-                        'phone': str(row[8]).strip() if len(row) > 8 and row[8] else '',
-                        'email': str(row[9]).strip() if len(row) > 9 and row[9] else '',
-                        'is_executive': str(row[10]).strip().lower() == 'да' if len(row) > 10 and row[10] else False,
-                        'is_pedagogical': str(row[11]).strip().lower() == 'да' if len(row) > 11 and row[11] else False,
-                        'is_safety_specialist': str(row[12]).strip().lower() == 'да' if len(row) > 12 and row[12] else False,
-                        'is_safety_committee_member': str(row[13]).strip().lower() == 'да' if len(row) > 13 and row[
-                            13] else False,
-                        'is_safety_committee_chair': str(row[14]).strip().lower() == 'да' if len(row) > 14 and row[
-                            14] else False,
-                        'is_acting_director': str(row[15]).strip().lower() == 'да' if len(row) > 15 and row[
-                            15] else False,
-                        'exempt_from_safety_instruction': str(row[16]).strip().lower() == 'да' if len(row) > 16 and row[
-                            16] else False,
-                        'on_parental_leave': str(row[17]).strip().lower() == 'да' if len(row) > 17 and row[
-                            17] else False,
+                        'phone': str(self._get_cell_value(row, 8, '')).strip()[:20],
+                        'email': str(self._get_cell_value(row, 9, '')).strip()[:254],
+                        'is_executive': self._parse_boolean(self._get_cell_value(row, 10)),
+                        'is_pedagogical': self._parse_boolean(self._get_cell_value(row, 11)),
+                        'is_safety_specialist': self._parse_boolean(self._get_cell_value(row, 12)),
+                        'is_safety_committee_member': self._parse_boolean(self._get_cell_value(row, 13)),
+                        'is_safety_committee_chair': self._parse_boolean(self._get_cell_value(row, 14)),
+                        'is_acting_director': self._parse_boolean(self._get_cell_value(row, 15)),
+                        'exempt_from_safety_instruction': self._parse_boolean(self._get_cell_value(row, 16)),
+                        'on_parental_leave': self._parse_boolean(self._get_cell_value(row, 17)),
                         'termination_date': termination_date,
-                        'termination_order_number': str(row[19]).strip() if len(row) > 19 and row[19] else '',
+                        'termination_order_number': str(self._get_cell_value(row, 19, '')).strip()[:50],
                         'is_active': termination_date is None,
                     }
-                )
 
-                # Сохраняем для последующей привязки по ФИО
-                fio_key = f"{
-                    emp.last_name} {
-                    emp.first_name} {
-                    emp.middle_name}".strip()
-                employees_by_fio[fio_key] = emp
-
-                if created:
-                    emp_created += 1
-                else:
-                    emp_updated += 1
-
+                    if not dry_run:
+                        emp, created = Employee.objects.update_or_create(
+                            last_name=str(
+                                self._get_cell_value(
+                                    row, 0, '')).strip()[
+                                :100], first_name=str(
+                                self._get_cell_value(
+                                    row, 2, '')).strip()[
+                                :100], defaults=defaults)
+                        if created:
+                            emp_created += 1
+                        else:
+                            emp_updated += 1
+                    else:
+                        emp_created += 1
+                except Exception as e:
+                    self.stdout.write(
+                        self.style.ERROR(
+                            f'❌ Ошибка в строке {row_idx}: {e}'))
+                    continue
             self.stdout.write(
                 self.style.SUCCESS(
                     f'✅ Сотрудники: {emp_created} новых, {emp_updated} обновлено'))
-        except KeyError:
+        except Exception as e:
             raise CommandError(
-                '❌ Критическая ошибка: Лист "4. Сотрудники" не найден!')
+                f'❌ Критическая ошибка при импорте сотрудников: {e}')
+
         # ==========================================
         # 5. Программы обучения
         # ==========================================
         prog_created = 0
         try:
-            ws_prog = wb["5. Программы"]
-            for row in ws_prog.iter_rows(min_row=2, values_only=True):
-                if not row[0]:
-                    continue
-
-                # 1. Получаем код из Excel (например, 'SAFETY', 'FIRE')
-                raw_category = str(row[1]).strip() if row[1] else 'OTHER'
-
-                # Словарик для человеческих названий (если категории еще нет в базе)
+            if "5. Программы" in wb.sheetnames:
+                ws_prog = wb["5. Программы"]
                 category_names = {
                     'SAFETY': 'Охрана труда',
                     'FIRE': 'Пожарная безопасность',
                     'FIRST_AID': 'Первая помощь',
                     'ELECTRICAL': 'Электробезопасность',
                     'ANTITERROR': 'Антитеррористическая защищенность',
-                    'OTHER': 'Прочее'
-                }
-
-                # 2. Находим или создаем категорию, указывая ОБЯЗАТЕЛЬНО field 'code'
-                # В вашей модели поле называется 'code' (судя по ошибке trainings_trainingcategory_code_key)
-                category_obj, _ = TrainingCategory.objects.get_or_create(
-                    code=raw_category,
-                    defaults={'name': category_names.get(raw_category, raw_category)}
-                )
-
-                # 3. Создаем программу
-                prog, created = TrainingProgram.objects.get_or_create(
-                    name=str(row[0]).strip(),
-                    defaults={
-                        'category': category_obj,
-                        'hours': int(row[2]) if len(row) > 2 and row[2] else 8,
-                        'frequency_months': int(row[3]) if len(row) > 3 and row[3] else 12,
-                        'is_mandatory': str(row[4]).strip().lower() == 'да' if len(row) > 4 and row[4] else False
-                    }
-                )
-                if created:
-                    prog_created += 1
-            self.stdout.write(self.style.SUCCESS(f'✅ Программы обучения: {prog_created} шт.'))
-        except KeyError:
-            self.stdout.write(self.style.WARNING('⚠️ Лист "5. Программы" не найден'))
+                    'OTHER': 'Прочее'}
+                for row in ws_prog.iter_rows(min_row=2, values_only=True):
+                    if not self._get_cell_value(row, 0):
+                        continue
+                    try:
+                        raw_category = str(
+                            self._get_cell_value(
+                                row, 1, 'OTHER')).strip().upper()
+                        if not dry_run:
+                            category_obj, _ = TrainingCategory.objects.get_or_create(
+                                code=raw_category, defaults={
+                                    'name': category_names.get(
+                                        raw_category, raw_category)})
+                            prog, created = TrainingProgram.objects.get_or_create(
+                                name=str(
+                                    self._get_cell_value(
+                                        row, 0, '')).strip()[
+                                    :255],  # 🔧 Обрезаем
+                                defaults={
+                                    'category': category_obj,
+                                    'hours': int(self._get_cell_value(row, 2, 8)),
+                                    'frequency_months': int(self._get_cell_value(row, 3, 12)),
+                                    'is_mandatory': self._parse_boolean(self._get_cell_value(row, 4)),
+                                }
+                            )
+                            if created:
+                                prog_created += 1
+                        else:
+                            prog_created += 1
+                    except Exception as e:
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f'⚠️ Пропущена программа: {e}'))
+                        continue
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f'✅ Программы обучения: {prog_created} шт.'))
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(
+                    f'❌ Ошибка при импорте программ: {e}'))
 
         # ==========================================
         # 6. Автоматическое назначение директора и спец. по ОТ
         # ==========================================
-        if org:
-            # Директор: ищем сотрудника с должностью "Директор" или флагом И.о.
-            # директора
-            director = None
+        if org and not dry_run:
+            try:
+                director = None
+                director_position = Position.objects.filter(
+                    name__iexact='Директор').first()
+                if director_position:
+                    director = Employee.objects.filter(
+                        is_active=True, position=director_position).order_by('hire_date').first()
+                if not director:
+                    director = Employee.objects.filter(
+                        is_active=True, is_acting_director=True).order_by('hire_date').first()
+                if director:
+                    org.director = director
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f'✅ Назначен директор: {director}'))
 
-            # 1. Сначала ищем сотрудника с точным названием должности
-            # "Директор"
-            director_position = Position.objects.filter(
-                name__iexact='Директор'
-            ).first()
-
-            if director_position:
-                director = Employee.objects.filter(
-                    is_active=True,
-                    position=director_position
-                ).order_by('hire_date').first()
-
-            # 2. Если не найден, ищем сотрудника с флагом "И.о. директора"
-            if not director:
-                director = Employee.objects.filter(
-                    is_active=True,
-                    is_acting_director=True
-                ).order_by('hire_date').first()
-
-            if director:
-                org.director = director
-                self.stdout.write(self.style.SUCCESS(
-                    f'✅ Назначен директор: {director.last_name} {director.first_name} '
-                    f'({director.position.name if director.position else "И.о. директора"})'
-                ))
-            else:
+                specialist = Employee.objects.filter(
+                    is_active=True, is_safety_specialist=True).first()
+                if specialist:
+                    org.safety_specialist = specialist
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f'✅ Назначен спец. по ОТ: {specialist}'))
+                org.save()
+            except Exception as e:
                 self.stdout.write(
                     self.style.WARNING(
-                        '⚠️ Директор не найден. Проверьте, что в списке сотрудников есть '
-                        'сотрудник с должностью "Директор" или флагом "И.о. директора"'))
-
-            # Специалист по ОТ: первый активный сотрудник со статусом спец. по
-            # ОТ
-            specialist = Employee.objects.filter(
-                is_active=True,
-                is_safety_specialist=True
-            ).first()
-
-            if specialist:
-                org.safety_specialist = specialist
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f'✅ Назначен спец. по ОТ: {
-                            specialist.last_name} {
-                            specialist.first_name}'))
-            else:
-                self.stdout.write(
-                    self.style.WARNING(
-                        '⚠️ Специалист по ОТ не найден. Проверьте, что в списке сотрудников '
-                        'есть сотрудник с флагом "Специалист по ОТ"'))
-
-            org.save()
+                        f'⚠️ Ошибка при назначении ответственных: {e}'))
 
         # ==========================================
-        # 7. Обучение
+        # 7. Обучение (ИСПРАВЛЕНО)
         # ==========================================
         train_created = 0
+        train_skipped = 0
+        train_errors = 0
         try:
-            ws_train = wb["6. Обучение"]
-            for row in ws_train.iter_rows(min_row=2, values_only=True):
-                if not row[0] or not row[3]:  # Требуется ФИО и Название программы
-                    continue
+            if "6. Обучение" in wb.sheetnames:
+                ws_train = wb["6. Обучение"]
 
-                # Поиск сотрудника ПО ФИО с учетом предыдущей фамилии
-                fio_parts = str(row[0]).strip().split()
-                if len(fio_parts) < 2:
-                    self.stdout.write(
-                        self.style.WARNING(
-                            f'⚠️ Некорректный формат ФИО: "{row[0]}"'))
-                    continue
-
-                ln = fio_parts[0].strip()  # Фамилия
-                fn = fio_parts[1].strip()  # Имя
-                mn = fio_parts[2].strip() if len(
-                    fio_parts) > 2 else ''  # Отчество
-
-                # ПОИСК ПО ТЕКУЩЕЙ ИЛИ ПРЕДЫДУЩЕЙ ФАМИЛИИ
-                emp = Employee.objects.filter(
-                    Q(last_name__iexact=ln) | Q(previous_last_name__iexact=ln),
-                    first_name__iexact=fn,
-                    middle_name__iexact=mn
-                ).first()
-
-                if not emp:
-                    self.stdout.write(
-                        self.style.WARNING(
-                            f'⚠️ Сотрудник "{
-                                row[0]}" не найден'))
-                    continue
-
-                # --- 7.2. Получаем данные из строки Excel ---
-                category_raw = str(
-                    row[1]).strip().lower() if row[1] else 'другое'
-                doc_type_raw = str(row[2]).strip().lower() if row[2] else ''
-                program_name_in_doc = str(
-                    row[3]).strip()  # ТО, ЧТО НАПИСАНО В БУМАГЕ
-                train_date = self._parse_date(row[4])
-                doc_number = str(row[5]).strip() if len(
-                    row) > 5 and row[5] else ''
-
-                if not train_date:
-                    continue
-
-                # --- 7.3. Маппинг (Связываем "кривое" название с "правильной" группой) ---
-
-                # Маппинг категорий
                 category_map = {
-                    'от': 'SAFETY', 'охрана труда': 'SAFETY',
-                    'пб': 'FIRE', 'пожарная безопасность': 'FIRE',
-                    'эб': 'ELECTRICAL', 'электробезопасность': 'ELECTRICAL',
+                    'от': 'SAFETY',
+                    'охрана труда': 'SAFETY',
+                    'пб': 'FIRE',
+                    'пожарная безопасность': 'FIRE',
+                    'эб': 'ELECTRICAL',
+                    'электробезопасность': 'ELECTRICAL',
                     'первая помощь': 'FIRST_AID',
+                    'оказание первой помощи': 'FIRST_AID',
                     'антитерроризм': 'ANTITERROR',
-                }
-                category_code = category_map.get(category_raw, 'OTHER')
+                    'го': 'CIVIL_DEFENSE',
+                    'бдд': 'ROAD_SAFETY',
+                    'дорожное движение': 'ROAD_SAFETY',
+                    'коррупция': 'OTHER',
+                    'педагог': 'FIRST_AID'}
 
-                # Пытаемся найти сопоставление в вашей новой таблице
-                # ProgramNameMapping
-                mapping = ProgramNameMapping.objects.filter(
-                    variant_name__iexact=program_name_in_doc,
-                    is_active=True
-                ).first()
-
-                if mapping and mapping.standard_program:
-                    # Если нашли в справочнике — берем эталонную программу
-                    # (группу)
-                    training_program = mapping.standard_program
-                else:
-                    # Если в справочнике нет, ищем программу с точно таким же
-                    # названием
-                    training_program = TrainingProgram.objects.filter(
-                        name__iexact=program_name_in_doc
-                    ).first()
-
-                # Если вообще ничего не нашли — создадим предупреждение,
-                # но запись создадим (хотя сроки могут считаться неверно без
-                # группы)
-                if not training_program:
-                    self.stdout.write(self.style.ERROR(
-                        f'❌ Не удалось подобрать группу для: "{program_name_in_doc}". '
-                        f'Добавьте это название в ProgramNameMapping в админке!'
-                    ))
-
-                # --- 7.4. Сохранение записи ---
-
-                # Маппинг типа документа (проверьте, что в модели Training поле называется document_type)
                 doc_type_map = {
-                    'протокол': 'PROTOCOL',
-                    'удостоверение': 'CERT_QUAL',
-                    'сертификат': 'CERT_COMPL',
-                    'диплом': 'DIPLOMA'
+                    'протокол': 'PROTOCOL', 'удостоверение': 'CERT_QUAL',
+                    'сертификат': 'CERT_COMPL', 'диплом': 'DIPLOMA'
                 }
 
-                # Используем update_or_create, чтобы не дублировать записи
-                training, created = Training.objects.update_or_create(
-                    employee=emp,
-                    training_date=train_date,
-                    program=training_program,  # Ссылка на TrainingProgram
-                    defaults={
-                        # ВАЖНО: используем raw_program_name, как в вашей модели
-                        'raw_program_name': program_name_in_doc,
-                        'document_type': doc_type_map.get(doc_type_raw, 'OTHER'),
-                        'document_number': doc_number,
-                        # Поле training_category убираем, так как его нет в модели Training
-                    }
-                )
+                for row_idx, row in enumerate(
+                    ws_train.iter_rows(
+                        min_row=2, values_only=True), start=2):
+                    if not self._get_cell_value(
+                            row,
+                            0) or not self._get_cell_value(
+                            row,
+                            3):
+                        continue
 
-                # --- 7.5. Загрузка скана (если есть) ---
-                if scans_dir and len(row) > 6 and row[6]:
-                    scan_file = str(row[6]).strip()
-                    file_path = os.path.join(scans_dir, scan_file)
-                    if os.path.exists(file_path):
-                        with open(file_path, 'rb') as f:
-                            training.document_scan.save(
-                                scan_file, File(f), save=True)
+                    try:
+                        # 1. Поиск сотрудника (улучшенный)
+                        emp = self._find_employee(self._get_cell_value(row, 0))
+                        if not emp:
+                            self.stdout.write(
+                                self.style.WARNING(
+                                    f'⚠️ Строка {row_idx}: Сотрудник "{
+                                        self._get_cell_value(
+                                            row, 0)}" не найден'))
+                            train_skipped += 1
+                            continue
 
-                if created:
-                    train_created += 1
+                        # 2. Данные из строки
+                        category_raw = str(
+                            self._get_cell_value(
+                                row, 1, 'другое')).strip().lower()
+                        doc_type_raw = str(
+                            self._get_cell_value(
+                                row, 2, '')).strip().lower()
+                        program_name_in_doc = str(
+                            self._get_cell_value(row, 3, '')).strip()
+                        train_date = self._parse_date(
+                            self._get_cell_value(row, 4))
+                        doc_number = str(
+                            self._get_cell_value(
+                                row, 5, '')).strip()
 
+                        if not train_date:
+                            self.stdout.write(
+                                self.style.WARNING(
+                                    f'⚠️ Строка {row_idx}: Неверная дата обучения'))
+                            train_skipped += 1
+                            continue
+
+                        # 3. Определение категории
+                        category_code = 'OTHER'
+                        for key, code in category_map.items():
+                            if key in category_raw:
+                                category_code = code
+                                break
+
+                        # 4. Поиск или создание программы (УМНАЯ ФУНКЦИЯ с
+                        # обрезкой имени)
+                        training_program = self._find_or_create_program(
+                            program_name_in_doc, category_code)
+
+                        if not training_program:
+                            self.stdout.write(
+                                self.style.ERROR(
+                                    f'❌ Строка {row_idx}: Не удалось создать программу'))
+                            train_errors += 1
+                            continue
+
+                        # 5. Сохранение записи
+                        if not dry_run:
+                            training, created = Training.objects.update_or_create(
+                                employee=emp,
+                                training_date=train_date,
+                                program=training_program,
+                                defaults={
+                                    # 🔧 Обрезаем для raw_program_name
+                                    'raw_program_name': program_name_in_doc[:500],
+                                    'document_type': doc_type_map.get(doc_type_raw, 'OTHER'),
+                                    # 🔧 Обрезаем
+                                    'document_number': doc_number[:100] if doc_number else '',
+                                }
+                            )
+
+                            # Загрузка скана
+                            if scans_dir and self._get_cell_value(row, 6):
+                                scan_file = str(
+                                    self._get_cell_value(
+                                        row, 6)).strip()
+                                file_path = os.path.join(scans_dir, scan_file)
+                                if os.path.exists(file_path):
+                                    with open(file_path, 'rb') as f:
+                                        training.document_scan.save(
+                                            scan_file, File(f), save=True)
+
+                            if created:
+                                train_created += 1
+                        else:
+                            train_created += 1
+
+                    except Exception as e:
+                        self.stdout.write(
+                            self.style.ERROR(
+                                f'❌ Ошибка в строке {row_idx} (Обучение): {e}'))
+                        train_errors += 1
+                        continue  # 🔧 Продолжаем импорт вместо прерывания
+
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f'✅ Обучение: загружено {train_created} записей'))
+                if train_skipped > 0:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f'⚠️ Пропущено записей (не найдены сотрудники): {train_skipped}'))
+                if train_errors > 0:
+                    self.stdout.write(
+                        self.style.ERROR(
+                            f'❌ Ошибок при импорте: {train_errors}'))
+            else:
+                self.stdout.write(self.style.WARNING(
+                    'ℹ️ Лист "6. Обучение" не найден'))
+        except Exception as e:
             self.stdout.write(
-                self.style.SUCCESS(
-                    f'✅ Обучение: загружено {train_created} записей'))
+                self.style.ERROR(
+                    f'❌ Ошибка при импорте обучения: {e}'))
 
-        except KeyError:
+        # ==========================================
+        # Итоговый отчет
+        # ==========================================
+        self.stdout.write(self.style.SUCCESS('\n' + '=' * 50))
+        self.stdout.write(self.style.SUCCESS('ИМПОРТ ЗАВЕРШЕН'))
+        self.stdout.write(self.style.SUCCESS('=' * 50))
+        if dry_run:
             self.stdout.write(self.style.WARNING(
-                'ℹ️ Лист "6. Обучение" не найден'))
+                'РЕЖИМ ПРОВЕРКИ - данные не сохранены'))
