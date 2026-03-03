@@ -13,7 +13,7 @@ from trainings.models import TrainingProgram, Training, TrainingCategory
 
 
 class Command(BaseCommand):
-    help = 'Импорт данных организации и сотрудников из Excel файла (исправленная версия)'
+    help = 'Импорт данных организации и сотрудников из Excel файла (с интерактивным режимом)'
 
     def add_arguments(self, parser):
         parser.add_argument('file_path', type=str, help='Путь к Excel файлу')
@@ -27,6 +27,15 @@ class Command(BaseCommand):
             action='store_true',
             help='Режим проверки без сохранения изменений'
         )
+        parser.add_argument(
+            '--interactive',
+            action='store_true',
+            help='Интерактивный режим: спрашивать что делать при ошибках'
+        )
+        parser.add_argument(
+            '--auto-create-employees',
+            action='store_true',
+            help='Автоматически создавать отсутствующих сотрудников (без вопросов)')
 
     def _parse_date(self, value):
         """Безопасный парсинг даты из разных форматов Excel"""
@@ -85,7 +94,11 @@ class Command(BaseCommand):
         except Exception:
             return default
 
-    def _find_or_create_program(self, program_name_raw, category_code):
+    def _find_or_create_program(
+            self,
+            program_name_raw,
+            category_code,
+            dry_run=False):
         """
         Умный поиск программы с ОБЯЗАТЕЛЬНЫМ ограничением длины имени
         """
@@ -93,19 +106,16 @@ class Command(BaseCommand):
             return None
 
         program_name_raw = str(program_name_raw).strip()
-
-        # 🔧 ВАЖНОЕ ИСПРАВЛЕНИЕ 1: Обрезаем название до 255 символов
-        # чтобы не было ошибки базы данных
         program_name_safe = program_name_raw[:255] if len(
             program_name_raw) > 255 else program_name_raw
 
-        # 1. Точный поиск (по обрезанному имени)
+        # 1. Точный поиск
         program = TrainingProgram.objects.filter(
             name__iexact=program_name_safe).first()
         if program:
             return program
 
-        # 2. Поиск по ключевым словам (маппинг длинных названий на короткие)
+        # 2. Поиск по ключевым словам
         keywords_map = {
             'SAFETY': ['охрана труда', 'сут', 'безопасность труда'],
             'FIRE': ['пожарная безопасность', 'пожарно-технический', 'пб'],
@@ -128,11 +138,9 @@ class Command(BaseCommand):
 
         name_lower = program_name_raw.lower()
 
-        # Проверяем ключевые слова для категории
         if category_code in keywords_map:
             for keyword in keywords_map[category_code]:
                 if keyword in name_lower:
-                    # Ищем стандартную программу с таким ключевым словом
                     std_prog = TrainingProgram.objects.filter(
                         category=target_category,
                         name__icontains=keyword
@@ -144,19 +152,21 @@ class Command(BaseCommand):
                                     std_prog.name}'))
                         return std_prog
 
-        # 3. Если не нашли - создаем новую программу с ОБРЕЗАННЫМ названием
-        self.stdout.write(self.style.WARNING(
-            f'   ↳ Программа не найдена. Создаем новую: "{program_name_safe[:50]}..."'))
-        program, _ = TrainingProgram.objects.get_or_create(
-            name=program_name_safe,  # 🔧 Используем безопасную длину
-            defaults={
-                'category': target_category,
-                'hours': 16,
-                'frequency_months': 12,
-                'is_mandatory': False
-            }
-        )
-        return program
+        # 3. Создаем новую программу
+        if not dry_run:
+            self.stdout.write(self.style.WARNING(
+                f'   ↳ Программа не найдена. Создаем новую: "{program_name_safe[:50]}..."'))
+            program, _ = TrainingProgram.objects.get_or_create(
+                name=program_name_safe,
+                defaults={
+                    'category': target_category,
+                    'hours': 16,
+                    'frequency_months': 12,
+                    'is_mandatory': False
+                }
+            )
+            return program
+        return None
 
     def _find_employee(self, fio_string):
         """
@@ -169,7 +179,7 @@ class Command(BaseCommand):
         if len(fio_parts) < 2:
             return None
 
-        # Вариант 1: Полное совпадение (Фамилия Имя Отчество)
+        # Вариант 1: Полное совпадение
         if len(fio_parts) >= 3:
             ln, fn, mn = fio_parts[0], fio_parts[1], " ".join(fio_parts[2:])
             emp = Employee.objects.filter(
@@ -180,7 +190,7 @@ class Command(BaseCommand):
             if emp:
                 return emp
 
-        # Вариант 2: Только Фамилия + Имя (игнорируем отчество)
+        # Вариант 2: Только Фамилия + Имя
         ln, fn = fio_parts[0], fio_parts[1]
         emp = Employee.objects.filter(
             (Q(last_name__iexact=ln) | Q(previous_last_name__iexact=ln)),
@@ -195,10 +205,154 @@ class Command(BaseCommand):
 
         return None
 
+    def _search_employee_similar(self, fio_string):
+        """
+        Поиск похожих сотрудников (частичное совпадение).
+        """
+        if not fio_string:
+            return []
+
+        fio_parts = str(fio_string).strip().split()
+        if len(fio_parts) < 1:
+            return []
+
+        ln = fio_parts[0].strip()
+
+        # Ищем по фамилии (частичное совпадение)
+        similar = Employee.objects.filter(
+            Q(last_name__icontains=ln) | Q(previous_last_name__icontains=ln),
+            is_active=True
+        ).order_by('last_name', 'first_name')[:10]
+
+        return list(similar)
+
+    def _interactive_employee_choice(
+            self, fio_string, row_idx, auto_create=False):
+        """
+        Интерактивный выбор действия при ненайденном сотруднике.
+        Возвращает сотрудника или None.
+        """
+        self.stdout.write(
+            self.style.ERROR(
+                f'❌ Строка {row_idx}: Сотрудник "{fio_string}" не найден в базе'))
+
+        # Показываем похожих сотрудников
+        similar = self._search_employee_similar(fio_string)
+
+        while True:
+            self.stdout.write(self.style.WARNING(
+                '\n🤔 Что делать с этой записью об обучении?'))
+            self.stdout.write('   1. ⏭️  Пропустить эту запись')
+            self.stdout.write(
+                '   2. ⏭️⏭️  Пропустить ВСЕ записи для этого сотрудника')
+            self.stdout.write(
+                '   3. 🔍 Показать похожих сотрудников для выбора')
+            self.stdout.write('   4. ✏️  Ввести правильное ФИО вручную')
+            self.stdout.write('   5. ➕ Создать нового сотрудника (только ФИО)')
+            self.stdout.write('   6. 🛑 Остановить импорт')
+
+            if auto_create:
+                self.stdout.write(self.style.SUCCESS(
+                    '   [АВТО] Будет создан новый сотрудник (режим --auto-create-employees)'))
+
+            choice = input('\nВаш выбор (1-6): ').strip()
+
+            # Авто-создание если включен флаг
+            if auto_create and choice not in ['1', '2', '6']:
+                choice = '5'
+
+            if choice == '1':
+                return None, False  # Пропустить, не блокировать
+
+            elif choice == '2':
+                return None, True  # Пропустить и блокировать дальнейшие записи этого сотрудника
+
+            elif choice == '3':
+                if similar:
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f'\n📋 Найдено {
+                                len(similar)} похожих сотрудников:'))
+                    for i, emp in enumerate(similar, 1):
+                        self.stdout.write(f'   {i}. {emp.last_name} {emp.first_name} {emp.middle_name} '
+                                          f'({emp.position.name if emp.position else "Без должности"})')
+
+                    select = input(
+                        '\nВыберите номер сотрудника (или 0 для отмены): ').strip()
+                    try:
+                        idx = int(select) - 1
+                        if 0 <= idx < len(similar):
+                            self.stdout.write(
+                                self.style.SUCCESS(
+                                    f'✅ Выбран: {
+                                        similar[idx]}'))
+                            return similar[idx], False
+                    except (ValueError, IndexError):
+                        pass
+                    self.stdout.write(self.style.WARNING('Отмена выбора'))
+                else:
+                    self.stdout.write(
+                        self.style.WARNING('Похожих сотрудников не найдено'))
+
+            elif choice == '4':
+                new_fio = input(
+                    'Введите правильное ФИО (Фамилия Имя Отчество): ').strip()
+                if new_fio:
+                    emp = self._find_employee(new_fio)
+                    if emp:
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f'✅ Сотрудник найден: {emp}'))
+                        return emp, False
+                    else:
+                        self.stdout.write(
+                            self.style.ERROR('Сотрудник с таким ФИО не найден'))
+                else:
+                    self.stdout.write(self.style.WARNING('Ввод отменён'))
+
+            elif choice == '5':
+                # Создание нового сотрудника
+                fio_parts = fio_string.strip().split()
+                if len(fio_parts) >= 2:
+                    ln = fio_parts[0]
+                    fn = fio_parts[1]
+                    mn = fio_parts[2] if len(fio_parts) > 2 else ''
+
+                    confirm = input(
+                        f'Создать сотрудника: {ln} {fn} {mn}? (y/n): ').strip().lower()
+                    if confirm == 'y':
+                        emp = Employee.objects.create(
+                            last_name=ln[:100],
+                            first_name=fn[:100],
+                            middle_name=mn[:100] if mn else '',
+                            is_active=True
+                        )
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f'✅ Сотрудник создан: {emp}'))
+                        return emp, False
+                    else:
+                        self.stdout.write(
+                            self.style.WARNING('Создание отменено'))
+                else:
+                    self.stdout.write(
+                        self.style.ERROR('Некорректный формат ФИО'))
+
+            elif choice == '6':
+                raise CommandError('Импорт остановлен пользователем')
+
+            else:
+                self.stdout.write(
+                    self.style.ERROR('Неверный выбор, попробуйте снова'))
+
+        return None, False
+
     def handle(self, *args, **options):
         path = options['file_path']
         scans_dir = options.get('scans-dir')
         dry_run = options.get('dry-run', False)
+        interactive = options.get('interactive', False)
+        auto_create = options.get('auto_create_employees', False)
 
         if not os.path.exists(path):
             raise CommandError(f'❌ Файл не найден: {path}')
@@ -212,6 +366,24 @@ class Command(BaseCommand):
         if dry_run:
             self.stdout.write(self.style.WARNING(
                 '⚠️ РЕЖИМ ПРОВЕРКИ (dry-run) - изменения не сохраняются'))
+        if interactive:
+            self.stdout.write(self.style.WARNING(
+                '🎮 ИНТЕРАКТИВНЫЙ РЕЖИМ - будут задаваться вопросы'))
+        if auto_create:
+            self.stdout.write(self.style.WARNING(
+                '🤖 АВТО-СОЗДАНИЕ - отсутствующие сотрудники будут созданы'))
+
+        # Статистика для отчёта
+        stats = {
+            'emp_created': 0,
+            'emp_updated': 0,
+            'train_created': 0,
+            'train_updated': 0,
+            'train_skipped': 0,
+            'train_errors': 0,
+            'employees_auto_created': 0,
+            'interactive_choices': 0,
+        }
 
         # ==========================================
         # 0. Организация
@@ -342,8 +514,6 @@ class Command(BaseCommand):
         # ==========================================
         # 4. Сотрудники
         # ==========================================
-        emp_created = 0
-        emp_updated = 0
         try:
             if "4. Сотрудники" not in wb.sheetnames:
                 raise CommandError(
@@ -407,19 +577,22 @@ class Command(BaseCommand):
                                     row, 2, '')).strip()[
                                 :100], defaults=defaults)
                         if created:
-                            emp_created += 1
+                            stats['emp_created'] += 1
                         else:
-                            emp_updated += 1
+                            stats['emp_updated'] += 1
                     else:
-                        emp_created += 1
+                        stats['emp_created'] += 1
                 except Exception as e:
                     self.stdout.write(
                         self.style.ERROR(
                             f'❌ Ошибка в строке {row_idx}: {e}'))
                     continue
+
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'✅ Сотрудники: {emp_created} новых, {emp_updated} обновлено'))
+                    f'✅ Сотрудники: {
+                        stats["emp_created"]} новых, {
+                        stats["emp_updated"]} обновлено'))
         except Exception as e:
             raise CommandError(
                 f'❌ Критическая ошибка при импорте сотрудников: {e}')
@@ -454,14 +627,14 @@ class Command(BaseCommand):
                                 name=str(
                                     self._get_cell_value(
                                         row, 0, '')).strip()[
-                                    :255],  # 🔧 Обрезаем
-                                defaults={
-                                    'category': category_obj,
-                                    'hours': int(self._get_cell_value(row, 2, 8)),
-                                    'frequency_months': int(self._get_cell_value(row, 3, 12)),
-                                    'is_mandatory': self._parse_boolean(self._get_cell_value(row, 4)),
-                                }
-                            )
+                                    :255], defaults={
+                                    'category': category_obj, 'hours': int(
+                                        self._get_cell_value(
+                                            row, 2, 8)), 'frequency_months': int(
+                                        self._get_cell_value(
+                                            row, 3, 12)), 'is_mandatory': self._parse_boolean(
+                                        self._get_cell_value(
+                                            row, 4)), })
                             if created:
                                 prog_created += 1
                         else:
@@ -513,11 +686,8 @@ class Command(BaseCommand):
                         f'⚠️ Ошибка при назначении ответственных: {e}'))
 
         # ==========================================
-        # 7. Обучение (ИСПРАВЛЕНО)
+        # 7. Обучение (С ИНТЕРАКТИВНЫМ РЕЖИМОМ)
         # ==========================================
-        train_created = 0
-        train_skipped = 0
-        train_errors = 0
         try:
             if "6. Обучение" in wb.sheetnames:
                 ws_train = wb["6. Обучение"]
@@ -543,6 +713,10 @@ class Command(BaseCommand):
                     'сертификат': 'CERT_COMPL', 'диплом': 'DIPLOMA'
                 }
 
+                # Отслеживаем сотрудников, которых пользователь решил
+                # пропустить
+                skip_employees = set()
+
                 for row_idx, row in enumerate(
                     ws_train.iter_rows(
                         min_row=2, values_only=True), start=2):
@@ -554,18 +728,41 @@ class Command(BaseCommand):
                         continue
 
                     try:
-                        # 1. Поиск сотрудника (улучшенный)
-                        emp = self._find_employee(self._get_cell_value(row, 0))
-                        if not emp:
-                            self.stdout.write(
-                                self.style.WARNING(
-                                    f'⚠️ Строка {row_idx}: Сотрудник "{
-                                        self._get_cell_value(
-                                            row, 0)}" не найден'))
-                            train_skipped += 1
+                        fio_string = str(self._get_cell_value(row, 0)).strip()
+
+                        # Проверяем, не в списке ли пропущенных
+                        if fio_string in skip_employees:
+                            stats['train_skipped'] += 1
                             continue
 
-                        # 2. Данные из строки
+                        # Поиск сотрудника
+                        emp = self._find_employee(fio_string)
+
+                        # Если не найден - интерактивный режим или
+                        # авто-создание
+                        if not emp:
+                            if interactive or auto_create:
+                                emp, block_future = self._interactive_employee_choice(
+                                    fio_string, row_idx, auto_create=auto_create)
+                                stats['interactive_choices'] += 1
+
+                                if block_future and fio_string:
+                                    skip_employees.add(fio_string)
+
+                                if not emp:
+                                    stats['train_skipped'] += 1
+                                    continue
+
+                                if emp and auto_create:
+                                    stats['employees_auto_created'] += 1
+                            else:
+                                self.stdout.write(
+                                    self.style.WARNING(
+                                        f'⚠️ Строка {row_idx}: Сотрудник "{fio_string}" не найден (используйте --interactive)'))
+                                stats['train_skipped'] += 1
+                                continue
+
+                        # Данные из строки
                         category_raw = str(
                             self._get_cell_value(
                                 row, 1, 'другое')).strip().lower()
@@ -584,42 +781,45 @@ class Command(BaseCommand):
                             self.stdout.write(
                                 self.style.WARNING(
                                     f'⚠️ Строка {row_idx}: Неверная дата обучения'))
-                            train_skipped += 1
+                            stats['train_skipped'] += 1
                             continue
 
-                        # 3. Определение категории
+                        # Определение категории
                         category_code = 'OTHER'
                         for key, code in category_map.items():
                             if key in category_raw:
                                 category_code = code
                                 break
 
-                        # 4. Поиск или создание программы (УМНАЯ ФУНКЦИЯ с
-                        # обрезкой имени)
+                        # Поиск или создание программы
                         training_program = self._find_or_create_program(
-                            program_name_in_doc, category_code)
+                            program_name_in_doc, category_code, dry_run=dry_run
+                        )
 
                         if not training_program:
                             self.stdout.write(
                                 self.style.ERROR(
                                     f'❌ Строка {row_idx}: Не удалось создать программу'))
-                            train_errors += 1
+                            stats['train_errors'] += 1
                             continue
 
-                        # 5. Сохранение записи
+                        # Сохранение записи
                         if not dry_run:
                             training, created = Training.objects.update_or_create(
                                 employee=emp,
                                 training_date=train_date,
                                 program=training_program,
                                 defaults={
-                                    # 🔧 Обрезаем для raw_program_name
                                     'raw_program_name': program_name_in_doc[:500],
                                     'document_type': doc_type_map.get(doc_type_raw, 'OTHER'),
-                                    # 🔧 Обрезаем
                                     'document_number': doc_number[:100] if doc_number else '',
                                 }
                             )
+
+                            if created:
+                                stats['train_created'] += 1
+                            else:
+                                stats['train_updated'] += 1
 
                             # Загрузка скана
                             if scans_dir and self._get_cell_value(row, 6):
@@ -631,44 +831,85 @@ class Command(BaseCommand):
                                     with open(file_path, 'rb') as f:
                                         training.document_scan.save(
                                             scan_file, File(f), save=True)
-
-                            if created:
-                                train_created += 1
                         else:
-                            train_created += 1
+                            stats['train_created'] += 1
 
+                    except CommandError:
+                        raise
                     except Exception as e:
                         self.stdout.write(
                             self.style.ERROR(
                                 f'❌ Ошибка в строке {row_idx} (Обучение): {e}'))
-                        train_errors += 1
-                        continue  # 🔧 Продолжаем импорт вместо прерывания
+                        stats['train_errors'] += 1
+                        continue
 
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f'✅ Обучение: загружено {train_created} записей'))
-                if train_skipped > 0:
+                        f'✅ Обучение: {
+                            stats["train_created"]} новых, {
+                            stats["train_updated"]} обновлено'))
+                if stats['train_skipped'] > 0:
                     self.stdout.write(
                         self.style.WARNING(
-                            f'⚠️ Пропущено записей (не найдены сотрудники): {train_skipped}'))
-                if train_errors > 0:
+                            f'⚠️ Пропущено записей: {
+                                stats["train_skipped"]}'))
+                if stats['train_errors'] > 0:
                     self.stdout.write(
                         self.style.ERROR(
-                            f'❌ Ошибок при импорте: {train_errors}'))
+                            f'❌ Ошибок: {
+                                stats["train_errors"]}'))
             else:
                 self.stdout.write(self.style.WARNING(
                     'ℹ️ Лист "6. Обучение" не найден'))
+        except CommandError:
+            raise
         except Exception as e:
             self.stdout.write(
                 self.style.ERROR(
                     f'❌ Ошибка при импорте обучения: {e}'))
 
         # ==========================================
-        # Итоговый отчет
+        # Итоговый отчёт
         # ==========================================
-        self.stdout.write(self.style.SUCCESS('\n' + '=' * 50))
-        self.stdout.write(self.style.SUCCESS('ИМПОРТ ЗАВЕРШЕН'))
-        self.stdout.write(self.style.SUCCESS('=' * 50))
+        self.stdout.write(self.style.SUCCESS('\n' + '=' * 60))
+        self.stdout.write(self.style.SUCCESS('📊 ИТОГОВЫЙ ОТЧЁТ'))
+        self.stdout.write(self.style.SUCCESS('=' * 60))
+        self.stdout.write(f'✅ Организация: обновлена')
+        self.stdout.write(
+            f'✅ Сотрудники: {
+                stats["emp_created"]} новых, {
+                stats["emp_updated"]} обновлено')
+        self.stdout.write(f'✅ Программы: {prog_created} шт.')
+        self.stdout.write(
+            f'✅ Обучение: {
+                stats["train_created"]} новых, {
+                stats["train_updated"]} обновлено')
+
+        if stats['train_skipped'] > 0:
+            self.stdout.write(
+                self.style.WARNING(
+                    f'⚠️ Пропущено записей об обучении: {
+                        stats["train_skipped"]}'))
+        if stats['train_errors'] > 0:
+            self.stdout.write(
+                self.style.ERROR(
+                    f'❌ Ошибок при импорте: {
+                        stats["train_errors"]}'))
+        if stats['interactive_choices'] > 0:
+            self.stdout.write(
+                self.style.WARNING(
+                    f'🎮 Интерактивных выборов: {
+                        stats["interactive_choices"]}'))
+        if stats['employees_auto_created'] > 0:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'🤖 Сотрудников создано автоматически: {
+                        stats["employees_auto_created"]}'))
+
+        self.stdout.write(self.style.SUCCESS('=' * 60))
+        self.stdout.write(self.style.SUCCESS('ИМПОРТ ЗАВЕРШЁН'))
+        self.stdout.write(self.style.SUCCESS('=' * 60))
+
         if dry_run:
             self.stdout.write(self.style.WARNING(
-                'РЕЖИМ ПРОВЕРКИ - данные не сохранены'))
+                '⚠️ РЕЖИМ ПРОВЕРКИ - данные не сохранены'))
