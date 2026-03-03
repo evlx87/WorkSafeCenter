@@ -210,6 +210,12 @@ class Training(models.Model):
         on_delete=models.PROTECT,
         verbose_name="Программа обучения"
     )
+    raw_program_name = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name="Название программы в документе",
+        help_text="Отображается в карточке сотрудника для исторической точности"
+    )
     training_date = models.DateField(
         verbose_name="Дата прохождения"
     )
@@ -248,7 +254,7 @@ class Training(models.Model):
         ordering = ['-training_date']
 
     def __str__(self):
-        return f"{self.employee} - {self.program.name}"
+        return f"{self.employee} - {self.raw_program_name or self.program.name}"
 
     def save(self, *args, **kwargs):
         # Автоматический расчет даты следующего обучения

@@ -8,7 +8,8 @@ from django.utils.dateparse import parse_date
 
 from employees.models import Employee
 from organization.models import OrganizationSafetyInfo, Site, Department, Position
-from trainings.models import TrainingProgram, Training, Instruction, InstructionType, ProgramNameMapping
+from trainings.models import TrainingProgram, Training, Instruction, InstructionType, ProgramNameMapping, \
+    TrainingCategory
 
 
 class Command(BaseCommand):
@@ -240,29 +241,50 @@ class Command(BaseCommand):
             raise CommandError(
                 '❌ Критическая ошибка: Лист "4. Сотрудники" не найден!')
         # ==========================================
-        # 4. Программы обучения
+        # 5. Программы обучения
         # ==========================================
         prog_created = 0
         try:
             ws_prog = wb["5. Программы"]
             for row in ws_prog.iter_rows(min_row=2, values_only=True):
-                if row[0]:
-                    prog, created = TrainingProgram.objects.get_or_create(
-                        name=str(
-                            row[0]).strip(), defaults={
-                            'training_type': str(
-                                row[1]).strip() if len(row) > 1 and row[1] else 'SAFETY', 'hours': int(
-                                row[2]) if len(row) > 2 and row[2] else 8, 'frequency_months': int(
-                                row[3]) if len(row) > 3 and row[3] else 12, 'is_mandatory': str(
-                                row[4]).strip().lower() == 'да' if len(row) > 4 and row[4] else False})
-                    if created:
-                        prog_created += 1
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'✅ Программы обучения: {prog_created} шт.'))
+                if not row[0]:
+                    continue
+
+                # 1. Получаем код из Excel (например, 'SAFETY', 'FIRE')
+                raw_category = str(row[1]).strip() if row[1] else 'OTHER'
+
+                # Словарик для человеческих названий (если категории еще нет в базе)
+                category_names = {
+                    'SAFETY': 'Охрана труда',
+                    'FIRE': 'Пожарная безопасность',
+                    'FIRST_AID': 'Первая помощь',
+                    'ELECTRICAL': 'Электробезопасность',
+                    'ANTITERROR': 'Антитеррористическая защищенность',
+                    'OTHER': 'Прочее'
+                }
+
+                # 2. Находим или создаем категорию, указывая ОБЯЗАТЕЛЬНО field 'code'
+                # В вашей модели поле называется 'code' (судя по ошибке trainings_trainingcategory_code_key)
+                category_obj, _ = TrainingCategory.objects.get_or_create(
+                    code=raw_category,
+                    defaults={'name': category_names.get(raw_category, raw_category)}
+                )
+
+                # 3. Создаем программу
+                prog, created = TrainingProgram.objects.get_or_create(
+                    name=str(row[0]).strip(),
+                    defaults={
+                        'category': category_obj,
+                        'hours': int(row[2]) if len(row) > 2 and row[2] else 8,
+                        'frequency_months': int(row[3]) if len(row) > 3 and row[3] else 12,
+                        'is_mandatory': str(row[4]).strip().lower() == 'да' if len(row) > 4 and row[4] else False
+                    }
+                )
+                if created:
+                    prog_created += 1
+            self.stdout.write(self.style.SUCCESS(f'✅ Программы обучения: {prog_created} шт.'))
         except KeyError:
-            self.stdout.write(self.style.WARNING(
-                '⚠️ Лист "5. Программы" не найден — пропускаем'))
+            self.stdout.write(self.style.WARNING('⚠️ Лист "5. Программы" не найден'))
 
         # ==========================================
         # 6. Автоматическое назначение директора и спец. по ОТ
@@ -332,12 +354,11 @@ class Command(BaseCommand):
         try:
             ws_train = wb["6. Обучение"]
             for row in ws_train.iter_rows(min_row=2, values_only=True):
-                if not row[0]:  # Требуется ФИО
+                if not row[0] or not row[3]:  # Требуется ФИО и Название программы
                     continue
 
                 # Поиск сотрудника ПО ФИО с учетом предыдущей фамилии
                 fio_parts = str(row[0]).strip().split()
-
                 if len(fio_parts) < 2:
                     self.stdout.write(
                         self.style.WARNING(
@@ -356,142 +377,105 @@ class Command(BaseCommand):
                     middle_name__iexact=mn
                 ).first()
 
-                # Если не найден по точному совпадению, ищем по частичному
-                # совпадению
-                if not emp:
-                    emp = Employee.objects.filter(
-                        Q(last_name__icontains=ln) | Q(previous_last_name__icontains=ln),
-                        first_name__icontains=fn,
-                        middle_name__icontains=mn
-                    ).first()
-
-                # Если все еще не найден, проверяем альтернативные имена
-                if not emp and Employee.objects.filter(
-                        previous_names__isnull=False).exists():
-                    for employee in Employee.objects.filter(
-                            previous_names__isnull=False):
-                        if employee.previous_names:
-                            for prev_name in employee.previous_names:
-                                if ln.lower() in prev_name.lower():
-                                    emp = employee
-                                    self.stdout.write(
-                                        self.style.WARNING(
-                                            f'⚠️ Найден сотрудник по предыдущему ФИО: {
-                                                row[0]} → ' f'{
-                                                employee.last_name} {
-                                                employee.first_name}'))
-                                    break
-                        if emp:
-                            break
-
                 if not emp:
                     self.stdout.write(
                         self.style.WARNING(
-                            f'⚠️ Сотрудник "{row[0]}" не найден для обучения'
-                        )
-                    )
+                            f'⚠️ Сотрудник "{
+                                row[0]}" не найден'))
                     continue
 
-                # Определение категории обучения
+                # --- 7.2. Получаем данные из строки Excel ---
+                category_raw = str(
+                    row[1]).strip().lower() if row[1] else 'другое'
+                doc_type_raw = str(row[2]).strip().lower() if row[2] else ''
+                program_name_in_doc = str(
+                    row[3]).strip()  # ТО, ЧТО НАПИСАНО В БУМАГЕ
+                train_date = self._parse_date(row[4])
+                doc_number = str(row[5]).strip() if len(
+                    row) > 5 and row[5] else ''
+
+                if not train_date:
+                    continue
+
+                # --- 7.3. Маппинг (Связываем "кривое" название с "правильной" группой) ---
+
+                # Маппинг категорий
                 category_map = {
-                    'ОТ': 'SAFETY',
-                    'охрана труда': 'SAFETY',
-                    'пб': 'FIRE',
-                    'пожарная безопасность': 'FIRE',
-                    'эб': 'ELECTRICAL',
-                    'электробезопасность': 'ELECTRICAL',
+                    'от': 'SAFETY', 'охрана труда': 'SAFETY',
+                    'пб': 'FIRE', 'пожарная безопасность': 'FIRE',
+                    'эб': 'ELECTRICAL', 'электробезопасность': 'ELECTRICAL',
                     'первая помощь': 'FIRST_AID',
                     'антитерроризм': 'ANTITERROR',
-                    'антитеррористическая защищенность': 'ANTITERROR',
                 }
+                category_code = category_map.get(category_raw, 'OTHER')
 
-                category_name = str(row[1]).strip().lower() if len(
-                    row) > 1 and row[1] else 'other'
-                category = category_map.get(category_name, 'OTHER')
+                # Пытаемся найти сопоставление в вашей новой таблице
+                # ProgramNameMapping
+                mapping = ProgramNameMapping.objects.filter(
+                    variant_name__iexact=program_name_in_doc,
+                    is_active=True
+                ).first()
 
-                # Определение типа документа
+                if mapping and mapping.standard_program:
+                    # Если нашли в справочнике — берем эталонную программу
+                    # (группу)
+                    training_program = mapping.standard_program
+                else:
+                    # Если в справочнике нет, ищем программу с точно таким же
+                    # названием
+                    training_program = TrainingProgram.objects.filter(
+                        name__iexact=program_name_in_doc
+                    ).first()
+
+                # Если вообще ничего не нашли — создадим предупреждение,
+                # но запись создадим (хотя сроки могут считаться неверно без
+                # группы)
+                if not training_program:
+                    self.stdout.write(self.style.ERROR(
+                        f'❌ Не удалось подобрать группу для: "{program_name_in_doc}". '
+                        f'Добавьте это название в ProgramNameMapping в админке!'
+                    ))
+
+                # --- 7.4. Сохранение записи ---
+
+                # Маппинг типа документа (проверьте, что в модели Training поле называется document_type)
                 doc_type_map = {
                     'протокол': 'PROTOCOL',
                     'удостоверение': 'CERT_QUAL',
                     'сертификат': 'CERT_COMPL',
-                    'диплом': 'DIPLOMA',
-                    'без документа': None,
+                    'диплом': 'DIPLOMA'
                 }
 
-                doc_type_name = str(row[2]).strip().lower() if len(
-                    row) > 2 and row[2] else ''
-                doc_type = doc_type_map.get(doc_type_name)
-
-                # Название программы в документе
-                program_name_in_doc = str(
-                    row[3]).strip() if len(row) > 3 and row[3] else ''
-
-                # Поиск стандартной программы
-                training_program = None
-                if program_name_in_doc:
-                    # Ищем в справочнике сопоставлений
-                    mapping = ProgramNameMapping.objects.filter(
-                        variant_name__iexact=program_name_in_doc,
-                        training_category=category,
-                        is_active=True
-                    ).first()
-
-                    if mapping and mapping.standard_program:
-                        training_program = mapping.standard_program
-                    else:
-                        # Ищем по частичному совпадению
-                        training_program = TrainingProgram.objects.filter(
-                            name__icontains=program_name_in_doc
-                        ).first()
-
-                # Парсинг даты
-                train_date = self._parse_date(row[4]) if len(row) > 4 else None
-                if not train_date:
-                    continue
-
-                # Номер документа
-                doc_number = str(row[5]).strip() if len(
-                    row) > 5 and row[5] else ''
-
-                # Создание записи об обучении
-                training, created = Training.objects.get_or_create(
+                # Используем update_or_create, чтобы не дублировать записи
+                training, created = Training.objects.update_or_create(
                     employee=emp,
                     training_date=train_date,
+                    program=training_program,  # Ссылка на TrainingProgram
                     defaults={
-                        'program': training_program,
-                        'document_type': doc_type,
-                        'program_name_in_document': program_name_in_doc,
+                        # ВАЖНО: используем raw_program_name, как в вашей модели
+                        'raw_program_name': program_name_in_doc,
+                        'document_type': doc_type_map.get(doc_type_raw, 'OTHER'),
                         'document_number': doc_number,
-                        'training_category': category,
+                        # Поле training_category убираем, так как его нет в модели Training
                     }
                 )
 
-                # Загрузка скана документа
-                if created and scans_dir and len(row) > 6 and row[6]:
+                # --- 7.5. Загрузка скана (если есть) ---
+                if scans_dir and len(row) > 6 and row[6]:
                     scan_file = str(row[6]).strip()
                     file_path = os.path.join(scans_dir, scan_file)
                     if os.path.exists(file_path):
                         with open(file_path, 'rb') as f:
                             training.document_scan.save(
                                 scan_file, File(f), save=True)
-                        self.stdout.write(
-                            f'   📄 Скан документа загружен: {scan_file}')
-                    else:
-                        self.stdout.write(
-                            self.style.WARNING(
-                                f'⚠️ Файл скана не найден: {file_path}'
-                            )
-                        )
 
                 if created:
                     train_created += 1
 
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'✅ Обучение: {train_created} записей'
-                )
-            )
+                    f'✅ Обучение: загружено {train_created} записей'))
+
         except KeyError:
             self.stdout.write(self.style.WARNING(
-                'ℹ️ Лист "6. Обучение" не найден — пропускаем'
-            ))
+                'ℹ️ Лист "6. Обучение" не найден'))
