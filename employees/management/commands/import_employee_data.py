@@ -284,8 +284,7 @@ class Command(BaseCommand):
                         if 0 <= idx < len(similar):
                             self.stdout.write(
                                 self.style.SUCCESS(
-                                    f'✅ Выбран: {
-                                        similar[idx]}'))
+                                    f'✅ Выбран: {similar[idx]}'))
                             return similar[idx], False
                     except (ValueError, IndexError):
                         pass
@@ -373,6 +372,46 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(
                 '🤖 АВТО-СОЗДАНИЕ - отсутствующие сотрудники будут созданы'))
 
+        # ==========================================
+        # 🔍 ПРОВЕРКА ДИРЕКТОРИИ СО СКАНАМИ
+        # ==========================================
+        if scans_dir:
+            # Преобразуем относительный путь в абсолютный
+            if not os.path.isabs(scans_dir):
+                scans_dir = os.path.abspath(scans_dir)
+
+            self.stdout.write(
+                self.style.INFO(
+                    f'📁 Директория сканов: {scans_dir}'))
+
+            if not os.path.exists(scans_dir):
+                self.stdout.write(self.style.ERROR(
+                    f'❌ Директория сканов не существует: {scans_dir}'))
+                scans_dir = None  # Отключаем загрузку сканов
+            elif not os.path.isdir(scans_dir):
+                self.stdout.write(self.style.ERROR(
+                    f'❌ Указанный путь не является директорией: {scans_dir}'))
+                scans_dir = None
+            elif not os.access(scans_dir, os.R_OK):
+                self.stdout.write(self.style.ERROR(
+                    f'❌ Нет прав на чтение директории: {scans_dir}'))
+                scans_dir = None
+            else:
+                # Считаем количество файлов для статистики
+                files_count = len([f for f in os.listdir(
+                    scans_dir) if os.path.isfile(os.path.join(scans_dir, f))])
+                self.stdout.write(self.style.SUCCESS(
+                    f'✅ Директория доступна. Найдено файлов: {files_count}'))
+
+                # Выводим список файлов для отладки (первые 10)
+                all_files = os.listdir(scans_dir)
+                if all_files:
+                    self.stdout.write(self.style.WARNING(
+                        f'📄 Примеры файлов в директории: {", ".join(all_files[:10])}'))
+                    if len(all_files) > 10:
+                        self.stdout.write(self.style.WARNING(
+                            f'   ... и ещё {len(all_files) - 10} файлов'))
+
         # Статистика для отчёта
         stats = {
             'emp_created': 0,
@@ -381,6 +420,9 @@ class Command(BaseCommand):
             'train_updated': 0,
             'train_skipped': 0,
             'train_errors': 0,
+            'scan_loaded': 0,  # ✅ НОВОЕ: успешно загруженные сканы
+            'scan_not_found': 0,  # ✅ НОВОЕ: файлы не найдены
+            'scan_error': 0,  # ✅ НОВОЕ: ошибки при загрузке
             'employees_auto_created': 0,
             'interactive_choices': 0,
         }
@@ -411,8 +453,7 @@ class Command(BaseCommand):
                             org = type('Org', (), defaults)()
                         self.stdout.write(
                             self.style.SUCCESS(
-                                f'✅ Организация: {
-                                    defaults["name_full"]}'))
+                                f'✅ Организация: {defaults["name_full"]}'))
                         break
         except Exception as e:
             self.stdout.write(
@@ -521,11 +562,11 @@ class Command(BaseCommand):
 
             ws_emp = wb["4. Сотрудники"]
             for row_idx, row in enumerate(
-                ws_emp.iter_rows(
-                    min_row=2, values_only=True), start=2):
+                    ws_emp.iter_rows(
+                        min_row=2, values_only=True), start=2):
                 if not self._get_cell_value(
-                        row,
-                        0) or not self._get_cell_value(
+                    row,
+                    0) or not self._get_cell_value(
                         row,
                         2):
                     continue
@@ -637,8 +678,8 @@ class Command(BaseCommand):
                                             row, 4)), })
                             if created:
                                 prog_created += 1
-                        else:
-                            prog_created += 1
+                            else:
+                                prog_created += 1
                     except Exception as e:
                         self.stdout.write(
                             self.style.WARNING(
@@ -718,11 +759,11 @@ class Command(BaseCommand):
                 skip_employees = set()
 
                 for row_idx, row in enumerate(
-                    ws_train.iter_rows(
-                        min_row=2, values_only=True), start=2):
+                        ws_train.iter_rows(
+                            min_row=2, values_only=True), start=2):
                     if not self._get_cell_value(
-                            row,
-                            0) or not self._get_cell_value(
+                        row,
+                        0) or not self._get_cell_value(
                             row,
                             3):
                         continue
@@ -821,18 +862,73 @@ class Command(BaseCommand):
                             else:
                                 stats['train_updated'] += 1
 
-                            # Загрузка скана
+                            # ==========================================
+                            # 🔍 ЗАГРУЗКА СКАНА (С ПОДРОБНОЙ ДИАГНОСТИКОЙ)
+                            # ==========================================
                             if scans_dir and self._get_cell_value(row, 6):
                                 scan_file = str(
                                     self._get_cell_value(
                                         row, 6)).strip()
-                                file_path = os.path.join(scans_dir, scan_file)
-                                if os.path.exists(file_path):
-                                    with open(file_path, 'rb') as f:
-                                        training.document_scan.save(
-                                            scan_file, File(f), save=True)
-                        else:
-                            stats['train_created'] += 1
+
+                                # Проверка: не пустое ли имя файла
+                                if not scan_file:
+                                    self.stdout.write(
+                                        self.style.WARNING(
+                                            f'  ⚠️ Строка {row_idx}: Имя файла скана пустое'))
+                                    stats['scan_error'] += 1
+                                else:
+                                    file_path = os.path.join(
+                                        scans_dir, scan_file)
+
+                                    # Подробный лог для отладки
+                                    self.stdout.write(self.style.NOTICE(
+                                        f'  🔍 Поиск файла: {scan_file}'))
+
+                                    if os.path.exists(file_path):
+                                        # Проверка прав на чтение
+                                        if os.access(file_path, os.R_OK):
+                                            try:
+                                                with open(file_path, 'rb') as f:
+                                                    training.document_scan.save(
+                                                        scan_file, File(f), save=True)
+                                                    self.stdout.write(
+                                                        self.style.SUCCESS(
+                                                            f'  ✅ Скан загружен: {scan_file} ({
+                                                                os.path.getsize(file_path)} байт)'))
+                                                    stats['scan_loaded'] += 1
+                                            except Exception as e:
+                                                self.stdout.write(
+                                                    self.style.ERROR(
+                                                        f'  ❌ Ошибка при чтении файла {scan_file}: {
+                                                            str(e)}'))
+                                                stats['scan_error'] += 1
+                                        else:
+                                            self.stdout.write(self.style.ERROR(
+                                                f'  ❌ Нет прав на чтение файла: {file_path}'))
+                                            stats['scan_error'] += 1
+                                    else:
+                                        self.stdout.write(self.style.ERROR(
+                                            f'  ❌ Файл не найден: {scan_file}'))
+                                        self.stdout.write(self.style.WARNING(
+                                            f'     Ожидаемый путь: {file_path}'))
+
+                                        # Подсказка: покажем похожие имена
+                                        # файлов
+                                        if os.path.exists(scans_dir):
+                                            similar_files = [
+                                                f for f in os.listdir(scans_dir)
+                                                if f.lower().startswith(scan_file.lower()[:5])
+                                            ]
+                                            if similar_files:
+                                                self.stdout.write(self.style.WARNING(
+                                                    f'     Возможно, вы имели в виду: {", ".join(similar_files[:3])}'))
+
+                                        stats['scan_not_found'] += 1
+                            else:
+                                if scans_dir and self._get_cell_value(row, 6):
+                                    self.stdout.write(
+                                        self.style.WARNING(
+                                            f'  ⚠️ Строка {row_idx}: Директория сканов не настроена'))
 
                     except CommandError:
                         raise
@@ -851,13 +947,11 @@ class Command(BaseCommand):
                 if stats['train_skipped'] > 0:
                     self.stdout.write(
                         self.style.WARNING(
-                            f'⚠️ Пропущено записей: {
-                                stats["train_skipped"]}'))
+                            f'⚠️ Пропущено записей: {stats["train_skipped"]}'))
                 if stats['train_errors'] > 0:
                     self.stdout.write(
                         self.style.ERROR(
-                            f'❌ Ошибок: {
-                                stats["train_errors"]}'))
+                            f'❌ Ошибок: {stats["train_errors"]}'))
             else:
                 self.stdout.write(self.style.WARNING(
                     'ℹ️ Лист "6. Обучение" не найден'))
@@ -869,7 +963,7 @@ class Command(BaseCommand):
                     f'❌ Ошибка при импорте обучения: {e}'))
 
         # ==========================================
-        # Итоговый отчёт
+        # 📊 ИТОГОВЫЙ ОТЧЁТ
         # ==========================================
         self.stdout.write(self.style.SUCCESS('\n' + '=' * 60))
         self.stdout.write(self.style.SUCCESS('📊 ИТОГОВЫЙ ОТЧЁТ'))
@@ -885,6 +979,13 @@ class Command(BaseCommand):
                 stats["train_created"]} новых, {
                 stats["train_updated"]} обновлено')
 
+        # ✅ НОВЫЙ БЛОК: Статистика по сканам
+        if stats['scan_loaded'] > 0 or stats['scan_not_found'] > 0 or stats['scan_error'] > 0:
+            self.stdout.write(self.style.INFO('\n📎 СТАТИСТИКА ПО СКАНАМ:'))
+            self.stdout.write(f'   ✅ Загружено: {stats["scan_loaded"]}')
+            self.stdout.write(f'   ❌ Не найдено: {stats["scan_not_found"]}')
+            self.stdout.write(f'   ⚠️ Ошибки: {stats["scan_error"]}')
+
         if stats['train_skipped'] > 0:
             self.stdout.write(
                 self.style.WARNING(
@@ -893,8 +994,7 @@ class Command(BaseCommand):
         if stats['train_errors'] > 0:
             self.stdout.write(
                 self.style.ERROR(
-                    f'❌ Ошибок при импорте: {
-                        stats["train_errors"]}'))
+                    f'❌ Ошибок при импорте: {stats["train_errors"]}'))
         if stats['interactive_choices'] > 0:
             self.stdout.write(
                 self.style.WARNING(
