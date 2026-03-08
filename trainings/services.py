@@ -14,135 +14,212 @@ def get_next_training_date(training_date, frequency_months):
 
 def check_employee_compliance(employee: Employee):
     """
-    Проверяет сотрудника на соответствие требованиям по обязательному обучению (курсы и инструктажи).
-
-    Возвращает словарь со списком недостающих и просроченных обязательств.
+    Улучшенная проверка сотрудника на соответствие требованиям по обучению
     """
     status = {
-        'missing_programs': [],  # Не пройденные обязательные курсы
-        # Не пройденные обязательные инструктажи (включая вводные)
+        'missing_programs': [],
         'missing_instructions': [],
-        'expired_programs': [],  # Просроченные курсы
-        'expired_instructions': [],  # Просроченные инструктажи (повторные)
+        'expired_programs': [],
+        'expired_instructions': [],
+        'recommendations': [],
     }
 
-    # Если сотрудник уволен, не проверяем
     if employee.termination_date:
         return status
 
     today = timezone.now().date()
+    programs = TrainingProgram.objects.all().select_related('category')
 
-    # ==========================================
-    # 1. ПРОВЕРКА ПРОГРАММ ОБУЧЕНИЯ (КУРСЫ)
-    # ==========================================
+    # Проверка по каждой категории обучения
+    category_checks = [
+        ('SAFETY', 'Охрана труда', _check_safety_training),
+        ('FIRE', 'Пожарная безопасность', _check_fire_training),
+        ('FIRST_AID', 'Первая помощь', _check_first_aid_training),
+        ('ELECTRICAL', 'Электробезопасность', _check_electrical_training),
+    ]
 
-    # Получаем все программы из базы данных для одного запроса
-    programs = TrainingProgram.objects.all()
+    for category_code, category_name, check_func in category_checks:
+        result = check_func(employee, programs, today)
+        if result['missing']:
+            status['missing_programs'].extend(result['missing'])
+        if result['expired']:
+            status['expired_programs'].extend(result['expired'])
 
-    # 1.1 Определяем, какие программы нужны этому сотруднику
-    required_programs_names = set()
+    # Проверка инструктажей
+    instruction_result = _check_instructions(employee, today)
+    status['missing_instructions'] = instruction_result['missing']
+    status['expired_instructions'] = instruction_result['expired']
 
-    # А. Электробезопасность (Нужна ВСЕМ)
-    required_programs_names.add('Электробезопасность')
+    # Формирование рекомендаций
+    if status['missing_programs'] or status['expired_programs']:
+        status['recommendations'].append(
+            f"Требуется обучение: {len(status['missing_programs']) + len(status['expired_programs'])} программ"
+        )
+    if status['missing_instructions'] or status['expired_instructions']:
+        status['recommendations'].append(
+            f"Требуется инструктаж: {len(status['missing_instructions']) + len(status['expired_instructions'])} видов"
+        )
 
-    # Б. Охрана труда (Руководители, Замы, Члены комиссии)
-    # Используем 'Специалист по охране труда' как часть логики
-    # руководства/комиссии
-    if employee.is_executive or employee.is_safety_committee_member:
-        # Используем часть названия, чтобы найти нужную программу
-        required_programs_names.add('Охрана труда для руководителей')
+    return status
 
-    # В. Первая помощь (Руководители, Замы, Педагоги)
-    if employee.is_executive or employee.is_pedagogical:
-        # Используем часть названия
-        required_programs_names.add('Первая помощь')
 
-    # Г. Пожарная безопасность (Руководители, Замы)
-    if employee.is_executive:
-        required_programs_names.add('Пожарная безопасность')
+def _check_safety_training(employee, programs, today):
+    """Проверка обучения по охране труда"""
+    result = {'missing': [], 'expired': []}
 
-    # 1.2 Проверяем наличие и сроки
+    if employee.exempt_from_safety_instruction:
+        return result
 
-    for prog_name in required_programs_names:
-        # Ищем программу по части названия
-        program = programs.filter(name__icontains=prog_name).first()
+    program = programs.filter(
+        category__code='SAFETY',
+        name__icontains='охрана труда'
+    ).first()
 
-        if program:
-            # Ищем последнее обучение по этой программе
-            last_training = Training.objects.filter(
-                employee=employee,
-                program=program
-            ).order_by('-training_date').first()
+    if not program:
+        return result
 
-            if not last_training:
-                status['missing_programs'].append(program)
-            else:
-                # Проверка сроков (если периодичность > 0)
-                if program.frequency_months > 0:
-                    expire_date = get_next_training_date(
-                        last_training.training_date, program.frequency_months)
-                    if expire_date < today:
-                        status['expired_programs'].append(program)
+    last_training = Training.objects.filter(
+        employee=employee,
+        program=program
+    ).order_by('-training_date').first()
 
-    # ==========================================
-    # 2. ПРОВЕРКА ИНСТРУКТАЖЕЙ
-    # ==========================================
+    if not last_training:
+        result['missing'].append(program)
+    elif program.frequency_months > 0:
+        expiry = last_training.training_date + \
+            relativedelta(months=program.frequency_months)
+        if expiry < today:
+            result['expired'].append(program)
 
-    instruction_types = InstructionType.objects.all()
+    return result
 
-    # А. Вводные инструктажи (ОТ и Пожарный) - нужны ВСЕМ (frequency_months=0)
-    intro_types = instruction_types.filter(type_name__icontains='Вводный')
+
+def _check_fire_training(employee, programs, today):
+    """Проверка обучения по пожарной безопасности"""
+    result = {'missing': [], 'expired': []}
+
+    program = programs.filter(
+        category__code='FIRE',
+        name__icontains='пожарная'
+    ).first()
+
+    if not program:
+        return result
+
+    # ПБ нужна руководителям и всем сотрудникам
+    if not (employee.is_executive or not employee.exempt_from_safety_instruction):
+        return result
+
+    last_training = Training.objects.filter(
+        employee=employee,
+        program=program
+    ).order_by('-training_date').first()
+
+    if not last_training:
+        result['missing'].append(program)
+    elif program.frequency_months > 0:
+        expiry = last_training.training_date + \
+            relativedelta(months=program.frequency_months)
+        if expiry < today:
+            result['expired'].append(program)
+
+    return result
+
+
+def _check_first_aid_training(employee, programs, today):
+    """Проверка обучения по первой помощи"""
+    result = {'missing': [], 'expired': []}
+
+    # Первая помощь нужна руководителям, педагогам, членам комиссии
+    if not (employee.is_executive or employee.is_pedagogical or employee.is_safety_committee_member):
+        return result
+
+    program = programs.filter(
+        category__code='FIRST_AID',
+        name__icontains='первая помощь'
+    ).first()
+
+    if not program:
+        return result
+
+    last_training = Training.objects.filter(
+        employee=employee,
+        program=program
+    ).order_by('-training_date').first()
+
+    if not last_training:
+        result['missing'].append(program)
+    elif program.frequency_months > 0:
+        expiry = last_training.training_date + \
+            relativedelta(months=program.frequency_months)
+        if expiry < today:
+            result['expired'].append(program)
+
+    return result
+
+
+def _check_electrical_training(employee, programs, today):
+    """Проверка обучения по электробезопасности"""
+    result = {'missing': [], 'expired': []}
+
+    # Электробезопасность нужна всем
+    program = programs.filter(
+        category__code='ELECTRICAL',
+        name__icontains='электробезопасность'
+    ).first()
+
+    if not program:
+        return result
+
+    last_training = Training.objects.filter(
+        employee=employee,
+        program=program
+    ).order_by('-training_date').first()
+
+    if not last_training:
+        result['missing'].append(program)
+    elif program.frequency_months > 0:
+        expiry = last_training.training_date + \
+            relativedelta(months=program.frequency_months)
+        if expiry < today:
+            result['expired'].append(program)
+
+    return result
+
+
+def _check_instructions(employee, today):
+    """Проверка инструктажей"""
+    result = {'missing': [], 'expired': []}
+
+    # Вводные инструктажи
+    intro_types = InstructionType.objects.filter(
+        type_name__icontains='Вводный')
     for i_type in intro_types:
         exists = Instruction.objects.filter(
-            employee=employee, instruction_type=i_type).exists()
+            employee=employee,
+            instruction_type=i_type
+        ).exists()
         if not exists:
-            status['missing_instructions'].append(i_type)
+            result['missing'].append(i_type)
 
-    # Б. Первичный/Повторный на рабочем месте (периодические, frequency_months > 0)
-    # Нужен всем, КРОМЕ освобожденных
+    # Повторные инструктажи
     if not employee.exempt_from_safety_instruction:
-        repeat_types = instruction_types.filter(
+        repeat_types = InstructionType.objects.filter(
             category__in=['SAFETY', 'FIRE'],
             frequency_months__gt=0
         )
-
         for i_type in repeat_types:
-            # Ищем самый последний инструктаж (первичный или повторный)
             last_instr = Instruction.objects.filter(
                 employee=employee,
-                # Группируем по категории (ОТ, Пож)
                 instruction_type__category=i_type.category
             ).order_by('-training_date').first()
 
             if not last_instr:
-                status['missing_instructions'].append(i_type)
-            else:
-                # Проверка сроков
-                frequency = i_type.frequency_months
-                expire_date = get_next_training_date(
-                    last_instr.training_date, frequency)
+                result['missing'].append(i_type)
+            elif i_type.frequency_months > 0:
+                expiry = last_instr.training_date + \
+                    relativedelta(months=i_type.frequency_months)
+                if expiry < today:
+                    result['expired'].append(i_type)
 
-                if expire_date and expire_date < today:
-                    status['expired_instructions'].append(i_type)
-
-    # В. Инструктаж по электробезопасности (1 группа)
-    prog_electro_instr = instruction_types.filter(
-        type_name__icontains='Ежегодный',
-        category='ELECTRICAL').first()
-    if prog_electro_instr:
-        last_instr = Instruction.objects.filter(
-            employee=employee,
-            instruction_type=prog_electro_instr
-        ).order_by('-training_date').first()
-
-        if not last_instr:
-            status['missing_instructions'].append(prog_electro_instr)
-        else:
-            frequency = prog_electro_instr.frequency_months
-            expire_date = get_next_training_date(
-                last_instr.training_date, frequency)
-
-            if expire_date and expire_date < today:
-                status['expired_instructions'].append(prog_electro_instr)
-
-    return status
+    return result

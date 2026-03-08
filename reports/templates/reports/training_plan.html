@@ -1,38 +1,161 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Список направляемых на обучение</h2>
+<section>
+    <div class="section-header">
+        <h2>📋 План-график обучения сотрудников</h2>
+        <a href="{% url 'reports:reports_index' %}" class="button" style="background-color: #95a5a6;">
+            ← Назад к отчетам
+        </a>
+    </div>
 
-<form method="get" class="mb-4">
-    <label>Выберите программу:</label>
-    <select name="program_id" onchange="this.form.submit()">
-        {% for program in programs %}
-            <option value="{{ program.id }}" {% if program.id|slugify == selected_program_id %}selected{% endif %}>
-                {{ program.name }}
-            </option>
-        {% endfor %}
-    </select>
-</form>
+    <!-- Фильтры -->
+    <form method="get" class="filter-toolbar">
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+            <div>
+                <label>Категория обучения:</label>
+                <select name="category" onchange="this.form.submit()">
+                    <option value="">Все категории</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.code }}" {% if cat.code == selected_category %}selected{% endif %}>
+                        {{ cat.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>ФИО</th>
-            <th>Должность</th>
-            <th>Последнее обучение</th>
-            <th>Статус</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for emp in employees %}
-        <tr>
-            <td>{{ emp.last_name }} {{ emp.first_name }}</td>
-            <td>{{ emp.position.name }}</td>
-            <td>{{ emp.reason }}</td> </tr>
-        {% empty %}
-        <tr>
-            <td colspan="3">Выберите программу или подходящих сотрудников не найдено.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+            <div>
+                <label>Программа:</label>
+                <select name="program_id" onchange="this.form.submit()">
+                    <option value="">Все программы</option>
+                    {% for program in programs %}
+                    <option value="{{ program.id }}" {% if program.id == selected_program.id|default:"" %}selected{% endif %}>
+                        {{ program.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Горизонт планирования (мес):</label>
+                <select name="horizon" onchange="this.form.submit()">
+                    <option value="3" {% if planning_horizon_months == 3 %}selected{% endif %}>3 месяца</option>
+                    <option value="6" {% if planning_horizon_months == 6 %}selected{% endif %}>6 месяцев</option>
+                    <option value="12" {% if planning_horizon_months == 12 %}selected{% endif %}>12 месяцев</option>
+                </select>
+            </div>
+
+            <div style="margin-left: auto;">
+                <button type="button" class="button" onclick="exportToExcel()">
+                    📊 Экспорт в Excel
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Статистика -->
+    <div class="summary-grid" style="margin: 20px 0;">
+        <div class="summary-card summary-danger">
+            <h4>Просрочено</h4>
+            <p class="value">{{ employees|length|default:"0" }}</p>
+            <p class="summary-note">Требуют немедленного обучения</p>
+        </div>
+        <div class="summary-card summary-warning">
+            <h4>Истекает в месяц</h4>
+            <p class="value">
+                {{ employees|length|default:"0" }}
+            </p>
+            <p class="summary-note">Планировать на ближайший месяц</p>
+        </div>
+        <div class="summary-card summary-primary">
+            <h4>Всего в плане</h4>
+            <p class="value">{{ employees|length|default:"0" }}</p>
+            <p class="summary-note">На {{ planning_horizon_months }} месяцев</p>
+        </div>
+    </div>
+
+    <!-- Таблица -->
+    {% if employees %}
+    <table>
+        <thead>
+            <tr>
+                <th>Приоритет</th>
+                <th>ФИО Сотрудника</th>
+                <th>Должность / Отдел</th>
+                <th>Программа обучения</th>
+                <th>Категория</th>
+                <th>Последнее обучение</th>
+                <th>Срок действия</th>
+                <th>Причина</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in employees %}
+            <tr {% if item.priority == 1 %}style="background-color: #ffeaea;"{% elif item.priority == 2 %}style="background-color: #fffaf0;"{% endif %}>
+                <td>
+                    {% if item.priority == 1 %}
+                    <span class="badge badge-danger">🔴 Крит</span>
+                    {% elif item.priority == 2 %}
+                    <span class="badge badge-warning">🟡 Высокий</span>
+                    {% elif item.priority == 3 %}
+                    <span class="badge badge-info">🔵 Средний</span>
+                    {% else %}
+                    <span class="badge badge-success">🟢 План</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'employees:employee_detail' item.employee.pk %}" style="font-weight: bold;">
+                        {{ item.employee.last_name }} {{ item.employee.first_name }} {{ item.employee.middle_name }}
+                    </a>
+                </td>
+                <td>
+                    <div>{{ item.employee.position|default:"-" }}</div>
+                    <div style="font-size: 0.85em; color: #666;">{{ item.employee.department|default:"-" }}</div>
+                </td>
+                <td>{{ item.program.name }}</td>
+                <td>
+                    <span class="badge" style="background-color: {% if item.program.category.code == 'SAFETY' %}#3498db{% elif item.program.category.code == 'FIRE' %}#e74c3c{% elif item.program.category.code == 'FIRST_AID' %}#27ae60{% elif item.program.category.code == 'ELECTRICAL' %}#f39c12{% else %}#95a5a6{% endif %}; color: white;">
+                        {{ item.program.category.name|default:"-" }}
+                    </span>
+                </td>
+                <td>
+                    {% if item.last_training_date %}
+                    {{ item.last_training_date|date:"d.m.Y" }}
+                    {% else %}
+                    <span style="color: #e74c3c;">Не пройдено</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.expiry_date %}
+                    {{ item.expiry_date|date:"d.m.Y" }}
+                    {% else %}
+                    <span style="color: #95a5a6;">-</span>
+                    {% endif %}
+                </td>
+                <td>{{ item.reason }}</td>
+                <td>
+                    <a href="{% url 'trainings:training_create' item.employee.pk %}?program={{ item.program.id }}"
+                       class="button-small"
+                       title="Добавить обучение">
+                        ✏️
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="text-align: center; padding: 50px; background: #f9f9f9; border-radius: 8px;">
+        <p style="color: #777; font-size: 1.1em;">📋 Сотрудников, требующих обучения, не найдено</p>
+        <p style="color: #999; font-size: 0.9em;">Все сотрудники имеют актуальное обучение в выбранной категории</p>
+    </div>
+    {% endif %}
+</section>
+
+<script>
+function exportToExcel() {
+    // Здесь можно добавить логику экспорта в Excel
+    alert('Функция экспорта будет реализована в следующей версии');
+}
+</script>
 {% endblock %}
