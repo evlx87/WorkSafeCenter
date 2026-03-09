@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}Отчет по соответствию: {{ employee.last_name }} {{ employee.first_name }}{% endblock %}
+{% block content %}
+<section>
+    <div class="section-header">
+        <h2>📋 Отчет по соответствию требованиям</h2>
+        <div>
+            <a href="{% url 'employees:employee_detail' employee.pk %}" class="button" style="background-color: #95a5a6;">
+                ← Карточка сотрудника
+            </a>
+            <a href="{% url 'reports:compliance_dashboard' %}" class="button" style="background-color: #3498db;">
+                📊 Панель соответствия
+            </a>
+        </div>
+    </div>
+    
+    <!-- Информация о сотруднике -->
+    <div class="profile-card">
+        <h3>{{ employee.last_name }} {{ employee.first_name }} {{ employee.middle_name }}</h3>
+        <p><strong>Должность:</strong> {{ employee.position|default:"-" }}</p>
+        <p><strong>Отдел:</strong> {{ employee.department|default:"-" }}</p>
+    </div>
+    
+    <!-- Статус соответствия -->
+    {% if compliance.expired_programs or compliance.missing_programs or compliance.expired_instructions or compliance.missing_instructions %}
+    <div style="background: #ffeaea; border-left: 4px solid #e74c3c; padding: 15px; margin: 20px 0;">
+        <h4 style="margin-top: 0; color: #c0392b;">⚠️ Требуются действия</h4>
+        <p>Обнаружено проблем: 
+            <strong>{{ compliance.expired_programs|length|add:compliance.missing_programs|length|add:compliance.expired_instructions|length|add:compliance.missing_instructions|length }}</strong>
+        </p>
+    </div>
+    {% else %}
+    <div style="background: #e8f5e9; border-left: 4px solid #27ae60; padding: 15px; margin: 20px 0;">
+        <h4 style="margin-top: 0; color: #27ae60;">✅ Все в порядке</h4>
+        <p>Сотрудник соответствует всем требованиям по обучению</p>
+    </div>
+    {% endif %}
+    
+    <!-- Просроченные программы -->
+    {% if compliance.expired_programs %}
+    <h3>❌ Просроченные программы</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Программа</th>
+                <th>Срок</th>
+                <th>Действие</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in compliance.expired_programs %}
+            <tr>
+                <td>{{ item.program.name }}</td>
+                <td>{{ item.expired_date|date:"d.m.Y" }}</td>
+                <td>
+                    <a href="{% url 'trainings:training_create' employee.pk %}?program={{ item.program.id }}">
+                        📝 Обновить
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    
+    <!-- Отсутствующие программы -->
+    {% if compliance.missing_programs %}
+    <h3>⚠️ Отсутствующие программы</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Программа</th>
+                <th>Срок</th>
+                <th>Действие</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in compliance.missing_programs %}
+            <tr>
+                <td>{{ item.program.name }}</td>
+                <td>{{ item.deadline|date:"d.m.Y" }}</td>
+                <td>
+                    <a href="{% url 'trainings:training_create' employee.pk %}?program={{ item.program.id }}">
+                        📝 Добавить
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+{% endblock %}

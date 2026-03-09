@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}Панель соответствия требованиям{% endblock %}
+{% block content %}
+<section>
+    <div class="section-header">
+        <h2>✅ Панель соответствия требованиям</h2>
+        <a href="{% url 'reports:reports_index' %}" class="button" style="background-color: #95a5a6;">
+            ← Назад к отчетам
+        </a>
+    </div>
+    
+    <!-- Статистика -->
+    <div class="summary-grid">
+        <div class="summary-card summary-primary">
+            <h4>Всего сотрудников</h4>
+            <p class="value">{{ total_employees }}</p>
+        </div>
+        <div class="summary-card summary-success">
+            <h4>Соответствуют</h4>
+            <p class="value">{{ compliant_count }}</p>
+        </div>
+        <div class="summary-card summary-danger">
+            <h4>Нарушения</h4>
+            <p class="value">{{ violations_count }}</p>
+        </div>
+        <div class="summary-card summary-warning">
+            <h4>Предупреждения</h4>
+            <p class="value">{{ warnings_count }}</p>
+        </div>
+    </div>
+    
+    <!-- Прогресс бар -->
+    <div style="margin: 20px 0;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+            <span style="font-weight: 600;">Процент соответствия</span>
+            <span style="font-weight: 600;">{{ compliance_rate }}%</span>
+        </div>
+        <div style="background: #e0e0e0; border-radius: 10px; height: 20px; overflow: hidden;">
+            <div style="background: {% if compliance_rate >= 80 %}#27ae60{% elif compliance_rate >= 50 %}#f39c12{% else %}#e74c3c{% endif %}; 
+                        height: 100%; 
+                        width: {{ compliance_rate }}%; 
+                        transition: width 0.5s ease;">
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Список сотрудников с проблемами -->
+<section>
+    <h3>⚠️ Сотрудники, требующие внимания</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>ФИО</th>
+                <th>Должность</th>
+                <th>Просрочено программ</th>
+                <th>Требуется программ</th>
+                <th>Действие</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for employee in employees_with_issues %}
+            <tr>
+                <td>
+                    <a href="{% url 'employees:employee_detail' employee.id %}">
+                        {{ employee.last_name }} {{ employee.first_name }} {{ employee.middle_name }}
+                    </a>
+                </td>
+                <td>{{ employee.position|default:"-" }}</td>
+                <td>{{ employee.expired_programs }}</td>
+                <td>{{ employee.missing_programs }}</td>
+                <td>
+                    <a href="{% url 'reports:compliance_report' employee.id %}" class="button-small">
+                        📋 Отчет
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 30px;">
+                    ✅ Все сотрудники соответствуют требованиям!
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

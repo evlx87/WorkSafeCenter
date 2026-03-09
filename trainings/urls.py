@@ -3,8 +3,7 @@ from django.urls import path
 from .views import training_program_list, TrainingProgramCreateView, TrainingProgramUpdateView, \
     TrainingProgramDeleteView, TrainingProgramDetailView, TrainingCreateView, TrainingUpdateView, \
     TrainingDeleteView, InstructionCreateView, InstructionUpdateView, InstructionDeleteView, TrainingCenterListView, \
-    TrainingCenterCreateView, TrainingCenterUpdateView, InternshipListView, InternshipCreateView, InternshipUpdateView, \
-    ComplianceDashboardView, ComplianceReportView
+    TrainingCenterCreateView, TrainingCenterUpdateView, InternshipListView, InternshipCreateView, InternshipUpdateView
 
 app_name = 'trainings'
 
@@ -37,8 +36,4 @@ urlpatterns = [
     path('internships/', InternshipListView.as_view(), name='internship_list'),
     path('employee/<int:employee_pk>/internship/add/', InternshipCreateView.as_view(), name='internship_create'),
     path('internships/<int:pk>/update/', InternshipUpdateView.as_view(), name='internship_update'),
-
-    # Соответствие требованиям
-    path('compliance/', ComplianceDashboardView.as_view(), name='compliance_dashboard'),
-    path('compliance/report/<int:employee_pk>/', ComplianceReportView.as_view(), name='compliance_report'),
 ]

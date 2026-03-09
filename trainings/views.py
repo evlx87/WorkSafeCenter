@@ -3,14 +3,11 @@ from django.shortcuts import get_object_or_404
 from django.shortcuts import render
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import CreateView, UpdateView, DeleteView
-from django.views.generic.detail import DetailView
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 
 from employees.models import Employee
 from .forms import InstructionForm, TrainingForm, TrainingProgramForm, TrainingCenterForm, InternshipForm
 from .models import Instruction, Training, TrainingProgram, TrainingCategory, TrainingCenter, Internship
-from .services import check_employee_compliance
 
 
 def training_program_list(request):
@@ -250,56 +247,3 @@ class InternshipUpdateView(UpdateView):
 
     def get_success_url(self):
         return reverse_lazy('trainings:internship_list')
-
-
-class ComplianceDashboardView(TemplateView):
-    """Панель соответствия требованиям"""
-    template_name = 'trainings/compliance_dashboard.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        today = timezone.now().date()
-
-        all_employees = Employee.objects.filter(is_active=True, termination_date__isnull=True)
-
-        violations_count = 0
-        warnings_count = 0
-        compliant_count = 0
-
-        for emp in all_employees:
-            status = check_employee_compliance(emp)
-            if status['compliant']:
-                compliant_count += 1
-            else:
-                violations_count += len(status['expired_programs']) + len(status['expired_instructions'])
-                warnings_count += len(status['missing_programs']) + len(status['missing_instructions'])
-
-        context.update({
-            'total_employees': all_employees.count(),
-            'compliant_count': compliant_count,
-            'violations_count': violations_count,
-            'warnings_count': warnings_count,
-            'compliance_rate': round(
-                compliant_count / all_employees.count() * 100, 1
-            ) if all_employees.count() > 0 else 0,
-        })
-
-        return context
-
-
-class ComplianceReportView(TemplateView):
-    """Отчет по соответствию конкретного сотрудника"""
-    template_name = 'trainings/compliance_report.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        employee = get_object_or_404(Employee, pk=kwargs['employee_pk'])
-        compliance_status = check_employee_compliance(employee)
-
-        context.update({
-            'employee': employee,
-            'compliance': compliance_status,
-            'today': timezone.now().date(),
-        })
-
-        return context

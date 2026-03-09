@@ -4,12 +4,13 @@ from dateutil.relativedelta import relativedelta
 from django.db.models import Count
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
+from django.views.generic import TemplateView
 
-from assessments.models import Workplace
 from employees.models import Employee
 from incidents.models import Incident
 from medical_checks.models import MedicalCheck
 from trainings.models import Training, TrainingProgram, TrainingCategory
+from trainings.services import check_employee_compliance
 
 
 # Create your views here.
@@ -245,7 +246,6 @@ def sout_report(request):
     """Отчет по специальной оценке условий труда"""
     from assessments.models import Workplace
     from django.utils import timezone
-    from datetime import timedelta
 
     today = timezone.now().date()
     workplaces = Workplace.objects.select_related(
@@ -314,3 +314,70 @@ def risks_report(request):
         'workplaces': workplaces,
         'stats': stats,
     })
+
+
+class ComplianceDashboardView(TemplateView):
+    """Панель соответствия требованиям по обучению"""
+    template_name = 'reports/compliance_dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.now().date()
+
+        all_employees = Employee.objects.filter(
+            is_active=True,
+            termination_date__isnull=True
+        )
+
+        violations_count = 0
+        warnings_count = 0
+        compliant_count = 0
+
+        for emp in all_employees:
+            status = check_employee_compliance(emp)
+            has_violations = (
+                status['expired_programs'] or
+                status['expired_instructions']
+            )
+            has_warnings = (
+                status['missing_programs'] or
+                status['missing_instructions']
+            )
+
+            if has_violations:
+                violations_count += 1
+            elif has_warnings:
+                warnings_count += 1
+            else:
+                compliant_count += 1
+
+        context.update({
+            'total_employees': all_employees.count(),
+            'compliant_count': compliant_count,
+            'violations_count': violations_count,
+            'warnings_count': warnings_count,
+            'compliance_rate': round(
+                compliant_count / all_employees.count() * 100, 1
+            ) if all_employees.count() > 0 else 0,
+            'today': today,
+        })
+
+        return context
+
+
+class ComplianceReportView(TemplateView):
+    """Отчёт по соответствию конкретного сотрудника"""
+    template_name = 'reports/compliance_report.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        employee = get_object_or_404(Employee, pk=kwargs['employee_pk'])
+        compliance_status = check_employee_compliance(employee)
+
+        context.update({
+            'employee': employee,
+            'compliance': compliance_status,
+            'today': timezone.now().date(),
+        })
+
+        return context
