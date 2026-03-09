@@ -2,7 +2,7 @@ from dateutil.relativedelta import relativedelta
 from django.utils import timezone
 
 from employees.models import Employee
-from .models import Training, Instruction, TrainingProgram, InstructionType
+from .models import Training, Instruction, TrainingProgram, InstructionType, Internship
 
 
 def get_next_training_date(training_date, frequency_months):
@@ -14,62 +14,99 @@ def get_next_training_date(training_date, frequency_months):
 
 def check_employee_compliance(employee: Employee):
     """
-    Улучшенная проверка сотрудника на соответствие требованиям по обучению
+    Полная проверка соответствия требованиям с учетом:
+    - Постановления № 2464
+    - Федерального закона № 273-ФЗ (первая помощь педагогам)
+    - Законов о пожарной безопасности
+    - Приказа Минэнерго № 811 (электробезопасность)
     """
     status = {
+        'compliant': True,
+        'violations': [],
+        'warnings': [],
+        'required_actions': [],
         'missing_programs': [],
         'missing_instructions': [],
         'expired_programs': [],
         'expired_instructions': [],
-        'recommendations': [],
     }
 
-    if employee.termination_date:
+    if employee.termination_date or not employee.is_active:
         return status
 
     today = timezone.now().date()
     programs = TrainingProgram.objects.all().select_related('category')
 
-    # Проверка по каждой категории обучения
-    category_checks = [
-        ('SAFETY', 'Охрана труда', _check_safety_training),
-        ('FIRE', 'Пожарная безопасность', _check_fire_training),
-        ('FIRST_AID', 'Первая помощь', _check_first_aid_training),
-        ('ELECTRICAL', 'Электробезопасность', _check_electrical_training),
-    ]
+    # 1. Проверка обучения по охране труда (Постановление № 2464 - 3 года)
+    safety_result = _check_safety_training(employee, programs, today)
+    status['missing_programs'].extend(safety_result['missing'])
+    status['expired_programs'].extend(safety_result['expired'])
 
-    for category_code, category_name, check_func in category_checks:
-        result = check_func(employee, programs, today)
-        if result['missing']:
-            status['missing_programs'].extend(result['missing'])
-        if result['expired']:
-            status['expired_programs'].extend(result['expired'])
+    # 2. Проверка первой помощи (273-ФЗ для педагогов - 1 год)
+    first_aid_result = _check_first_aid_training(employee, programs, today)
+    status['missing_programs'].extend(first_aid_result['missing'])
+    status['expired_programs'].extend(first_aid_result['expired'])
 
-    # Проверка инструктажей
+    # 3. Проверка пожарной безопасности (законы о ПБ)
+    fire_result = _check_fire_training(employee, programs, today)
+    status['missing_programs'].extend(fire_result['missing'])
+    status['expired_programs'].extend(fire_result['expired'])
+
+    # 4. Проверка электробезопасности (Приказ № 811)
+    electrical_result = _check_electrical_training(employee, programs, today)
+    status['missing_programs'].extend(electrical_result['missing'])
+    status['expired_programs'].extend(electrical_result['expired'])
+
+    # 5. Проверка инструктажей
     instruction_result = _check_instructions(employee, today)
     status['missing_instructions'] = instruction_result['missing']
     status['expired_instructions'] = instruction_result['expired']
 
-    # Формирование рекомендаций
-    if status['missing_programs'] or status['expired_programs']:
-        status['recommendations'].append(
-            f"Требуется обучение: {len(status['missing_programs']) + len(status['expired_programs'])} программ"
-        )
-    if status['missing_instructions'] or status['expired_instructions']:
-        status['recommendations'].append(
-            f"Требуется инструктаж: {len(status['missing_instructions']) + len(status['expired_instructions'])} видов"
-        )
+    # 6. Проверка стажировки (для рабочих профессий при приеме)
+    if employee.hire_date:
+        days_since_hire = (today - employee.hire_date).days
+        if days_since_hire <= 90 and _is_worker_profession(employee):
+            internship_result = _check_internship(employee, today)
+            if internship_result['required']:
+                status['required_actions'].append({
+                    'type': 'REQUIRED_INTERNSHIP',
+                    'message': 'Требуется проведение стажировки на рабочем месте',
+                    'deadline': employee.hire_date + relativedelta(days=90)
+                })
+
+    # Определение общего статуса соответствия
+    if status['violations'] or status['expired_programs'] or status['expired_instructions']:
+        status['compliant'] = False
+
+    if status['missing_programs'] or status['missing_instructions']:
+        status['compliant'] = False
 
     return status
 
 
+def _is_worker_profession(employee: Employee) -> bool:
+    """Проверяет, является ли профессия рабочей"""
+    if not employee.position:
+        return False
+
+    worker_keywords = ['рабоч', 'рабочий', 'рабочая', 'оператор', 'водитель',
+                       'машинист', 'слесар', 'электр', 'монт', 'строитель']
+
+    position_name = employee.position.name.lower()
+    return any(keyword in position_name for keyword in worker_keywords)
+
+
 def _check_safety_training(employee, programs, today):
-    """Проверка обучения по охране труда"""
+    """
+    Проверка обучения по охране труда
+    Постановление № 2464: не реже 1 раза в 3 года
+    """
     result = {'missing': [], 'expired': []}
 
     if employee.exempt_from_safety_instruction:
         return result
 
+    # Для руководителей и специалистов - 3 года
     program = programs.filter(
         category__code='SAFETY',
         name__icontains='охрана труда'
@@ -84,30 +121,41 @@ def _check_safety_training(employee, programs, today):
     ).order_by('-training_date').first()
 
     if not last_training:
-        result['missing'].append(program)
+        result['missing'].append({
+            'program': program,
+            'reason': 'Отсутствует обучение по охране труда',
+            'deadline': employee.hire_date + relativedelta(days=60) if employee.hire_date else today
+        })
     elif program.frequency_months > 0:
         expiry = last_training.training_date + \
             relativedelta(months=program.frequency_months)
         if expiry < today:
-            result['expired'].append(program)
+            result['expired'].append({
+                'program': program,
+                'reason': f'Истек срок обучения по охране труда (истек {expiry.strftime("%d.%m.%Y")})',
+                'expired_date': expiry
+            })
+        elif expiry < today + relativedelta(days=90):
+            # Предупреждение за 90 дней
+            pass  # Можно добавить в warnings
 
     return result
 
 
 def _check_fire_training(employee, programs, today):
-    """Проверка обучения по пожарной безопасности"""
+    """
+    Проверка обучения по пожарной безопасности
+    Законы о ПБ (69-ФЗ, 123-ФЗ): противопожарный инструктаж и обучение
+    """
     result = {'missing': [], 'expired': []}
 
+    # ПБ требуется всем сотрудникам
     program = programs.filter(
         category__code='FIRE',
-        name__icontains='пожарная'
+        name__icontains='пожарн'
     ).first()
 
     if not program:
-        return result
-
-    # ПБ нужна руководителям и всем сотрудникам
-    if not (employee.is_executive or not employee.exempt_from_safety_instruction):
         return result
 
     last_training = Training.objects.filter(
@@ -116,22 +164,42 @@ def _check_fire_training(employee, programs, today):
     ).order_by('-training_date').first()
 
     if not last_training:
-        result['missing'].append(program)
+        result['missing'].append({
+            'program': program,
+            'reason': 'Отсутствует обучение по пожарной безопасности',
+            'deadline': employee.hire_date + relativedelta(days=30) if employee.hire_date else today,
+            'legal_basis': '69-ФЗ, 123-ФЗ'
+        })
     elif program.frequency_months > 0:
         expiry = last_training.training_date + \
             relativedelta(months=program.frequency_months)
         if expiry < today:
-            result['expired'].append(program)
+            result['expired'].append({
+                'program': program,
+                'reason': f'Истек срок обучения по пожарной безопасности (истек {expiry.strftime("%d.%m.%Y")})',
+                'expired_date': expiry,
+                'legal_basis': '69-ФЗ, 123-ФЗ'
+            })
 
     return result
 
 
 def _check_first_aid_training(employee, programs, today):
-    """Проверка обучения по первой помощи"""
+    """
+    Проверка обучения по первой помощи
+    Федеральный закон № 273-ФЗ: для педагогических работников - ежегодно
+    Постановление № 2464: для руководителей и членов комиссии - 1 год
+    """
     result = {'missing': [], 'expired': []}
 
-    # Первая помощь нужна руководителям, педагогам, членам комиссии
-    if not (employee.is_executive or employee.is_pedagogical or employee.is_safety_committee_member):
+    # Определяем, кому требуется первая помощь
+    requires_first_aid = (
+        employee.is_pedagogical or  # 273-ФЗ - педагоги
+        employee.is_executive or  # 2464 - руководители
+        employee.is_safety_committee_member  # 2464 - члены комиссии
+    )
+
+    if not requires_first_aid:
         return result
 
     program = programs.filter(
@@ -147,25 +215,47 @@ def _check_first_aid_training(employee, programs, today):
         program=program
     ).order_by('-training_date').first()
 
+    # Для педагогов - 1 год (273-ФЗ)
+    # Для остальных по программе (обычно 1-3 года)
+    frequency_months = 12 if employee.is_pedagogical else program.frequency_months
+
     if not last_training:
-        result['missing'].append(program)
-    elif program.frequency_months > 0:
+        result['missing'].append({
+            'program': program,
+            'reason': 'Отсутствует обучение по первой помощи',
+            'deadline': employee.hire_date + relativedelta(days=30) if employee.hire_date else today,
+            'legal_basis': '273-ФЗ' if employee.is_pedagogical else 'Постановление № 2464'
+        })
+    elif frequency_months > 0:
         expiry = last_training.training_date + \
-            relativedelta(months=program.frequency_months)
+            relativedelta(months=frequency_months)
         if expiry < today:
-            result['expired'].append(program)
+            result['expired'].append({
+                'program': program,
+                'reason': f'Истек срок обучения по первой помощи (истек {expiry.strftime("%d.%m.%Y")})',
+                'expired_date': expiry,
+                'legal_basis': '273-ФЗ' if employee.is_pedagogical else 'Постановление № 2464'
+            })
 
     return result
 
 
 def _check_electrical_training(employee, programs, today):
-    """Проверка обучения по электробезопасности"""
+    """
+    Проверка обучения по электробезопасности
+    Приказ Минэнерго РФ от 12.08.2022 № 811
+    """
     result = {'missing': [], 'expired': []}
 
-    # Электробезопасность нужна всем
+    # Проверяем, требуется ли электробезопасность
+    requires_electrical = _requires_electrical_safety(employee)
+
+    if not requires_electrical:
+        return result
+
     program = programs.filter(
         category__code='ELECTRICAL',
-        name__icontains='электробезопасность'
+        name__icontains='электробезопасност'
     ).first()
 
     if not program:
@@ -176,31 +266,83 @@ def _check_electrical_training(employee, programs, today):
         program=program
     ).order_by('-training_date').first()
 
+    # По Приказу 811:
+    # - I группа - ежегодно
+    # - II-V группа - ежегодно (проверка знаний)
+    frequency_months = 12  # По умолчанию ежегодно
+
     if not last_training:
-        result['missing'].append(program)
-    elif program.frequency_months > 0:
+        result['missing'].append({
+            'program': program,
+            'reason': 'Отсутствует обучение по электробезопасности',
+            'deadline': employee.hire_date + relativedelta(days=30) if employee.hire_date else today,
+            'legal_basis': 'Приказ Минэнерго № 811'
+        })
+    elif frequency_months > 0:
         expiry = last_training.training_date + \
-            relativedelta(months=program.frequency_months)
+            relativedelta(months=frequency_months)
         if expiry < today:
-            result['expired'].append(program)
+            result['expired'].append({
+                'program': program,
+                'reason': f'Истек срок обучения по электробезопасности (истек {expiry.strftime("%d.%m.%Y")})',
+                'expired_date': expiry,
+                'legal_basis': 'Приказ Минэнерго № 811'
+            })
 
     return result
+
+
+def _requires_electrical_safety(employee: Employee) -> bool:
+    """
+    Определяет, требуется ли сотруднику обучение по электробезопасности
+    согласно Приказу № 811
+    """
+    if not employee.position:
+        return False
+
+    # Ключевые слова для определения необходимости
+    electrical_keywords = [
+        'электр', 'энерг', 'напряж', 'установк', 'щит', 'кабель',
+        'провод', 'освещ', 'оборудовани', 'монтаж', 'ремонт'
+    ]
+
+    position_name = employee.position.name.lower()
+
+    # Проверяем должность
+    if any(keyword in position_name for keyword in electrical_keywords):
+        return True
+
+    # Проверяем категорию сотрудника
+    # По Приказу 811 - все работающие с электроустановками
+    if employee.is_executive or employee.is_safety_specialist:
+        return True
+
+    return False
 
 
 def _check_instructions(employee, today):
     """Проверка инструктажей"""
     result = {'missing': [], 'expired': []}
 
-    # Вводные инструктажи
-    intro_types = InstructionType.objects.filter(
-        type_name__icontains='Вводный')
-    for i_type in intro_types:
-        exists = Instruction.objects.filter(
-            employee=employee,
-            instruction_type=i_type
-        ).exists()
-        if not exists:
-            result['missing'].append(i_type)
+    # Вводный инструктаж (обязателен для всех в течение 60 дней)
+    if employee.hire_date:
+        days_since_hire = (today - employee.hire_date).days
+        if days_since_hire <= 60:
+            intro_types = InstructionType.objects.filter(
+                type_name__icontains='Вводный'
+            )
+            for i_type in intro_types:
+                exists = Instruction.objects.filter(
+                    employee=employee,
+                    instruction_type=i_type
+                ).exists()
+                if not exists:
+                    result['missing'].append({
+                        'type': i_type,
+                        'reason': 'Не проведен вводный инструктаж',
+                        'deadline': employee.hire_date + relativedelta(days=60),
+                        'legal_basis': 'Постановление № 2464'
+                    })
 
     # Повторные инструктажи
     if not employee.exempt_from_safety_instruction:
@@ -211,15 +353,46 @@ def _check_instructions(employee, today):
         for i_type in repeat_types:
             last_instr = Instruction.objects.filter(
                 employee=employee,
-                instruction_type__category=i_type.category
+                instruction_type=i_type
             ).order_by('-training_date').first()
 
             if not last_instr:
-                result['missing'].append(i_type)
+                result['missing'].append({
+                    'type': i_type,
+                    'reason': f'Не проведен {i_type.type_name} инструктаж',
+                    'deadline': employee.hire_date + relativedelta(days=30) if employee.hire_date else today
+                })
             elif i_type.frequency_months > 0:
                 expiry = last_instr.training_date + \
                     relativedelta(months=i_type.frequency_months)
                 if expiry < today:
-                    result['expired'].append(i_type)
+                    result['expired'].append({
+                        'type': i_type,
+                        'reason': f'Просрочен {i_type.type_name} инструктаж',
+                        'expired_date': expiry
+                    })
+
+    return result
+
+
+def _check_internship(employee, today):
+    """Проверка необходимости стажировки"""
+    result = {'required': False, 'message': ''}
+
+    if not employee.hire_date:
+        return result
+
+    days_since_hire = (today - employee.hire_date).days
+
+    # Стажировка требуется для рабочих профессий в течение 90 дней
+    if days_since_hire <= 90 and _is_worker_profession(employee):
+        internship = Internship.objects.filter(
+            employee=employee,
+            is_completed=True
+        ).exists()
+
+        if not internship:
+            result['required'] = True
+            result['message'] = 'Требуется стажировка на рабочем месте'
 
     return result

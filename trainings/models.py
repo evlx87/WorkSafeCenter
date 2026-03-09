@@ -2,8 +2,6 @@ from dateutil.relativedelta import relativedelta
 from django.db import models
 from django.utils import timezone
 
-from documents.models import Document
-from employees.models import Employee
 from .validators import validate_pdf_or_image
 
 
@@ -100,6 +98,94 @@ class InstructionType(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class TrainingCenter(models.Model):
+    """Внутренний реестр учебных центров, где обучались сотрудники"""
+    name = models.CharField(max_length=255,
+                            verbose_name="Название учебного центра")
+    inn = models.CharField(max_length=12, blank=True, verbose_name="ИНН")
+    address = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Адрес")
+    phone = models.CharField(max_length=20, blank=True, verbose_name="Телефон")
+    email = models.EmailField(blank=True, verbose_name="Email")
+    website = models.URLField(blank=True, verbose_name="Сайт")
+    license_number = models.CharField(
+        max_length=100, blank=True, verbose_name="Лицензия №")
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Учебный центр"
+        verbose_name_plural = "Учебные центры"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class Internship(models.Model):
+    """Стажировка на рабочем месте (только для рабочих профессий)"""
+    employee = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.CASCADE,
+        related_name='internships',
+        verbose_name="Сотрудник"
+    )
+    workplace = models.ForeignKey(
+        'assessments.Workplace',
+        on_delete=models.PROTECT,
+        verbose_name="Рабочее место"
+    )
+    supervisor = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.PROTECT,
+        related_name='supervised_internships',
+        verbose_name="Руководитель стажировки",
+        limit_choices_to={'is_executive': True}
+    )
+    start_date = models.DateField(verbose_name="Дата начала")
+    end_date = models.DateField(verbose_name="Дата окончания")
+    duration_days = models.PositiveIntegerField(
+        verbose_name="Продолжительность (дней)")
+    program_description = models.TextField(verbose_name="Программа стажировки")
+    is_completed = models.BooleanField(default=False, verbose_name="Завершена")
+    final_assessment = models.TextField(verbose_name="Итоговая оценка")
+    document_scan = models.FileField(
+        upload_to='internships/',
+        null=True,
+        blank=True,
+        verbose_name="Скан документа о стажировке",
+        validators=[validate_pdf_or_image]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Стажировка"
+        verbose_name_plural = "Стажировки"
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return f"Стажировка {
+            self.employee} ({
+            self.start_date} - {
+            self.end_date})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        # Проверка: только для рабочих профессий
+        if self.employee.position and 'рабоч' in self.employee.position.name.lower():
+            pass  # OK
+        else:
+            # Можно добавить предупреждение, но не блокировать
+            pass
+
+        # Проверка дат
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError(
+                'Дата окончания не может быть раньше даты начала')
 
 
 class TrainingProgram(models.Model):
@@ -214,8 +300,7 @@ class Training(models.Model):
         max_length=500,
         blank=True,
         verbose_name="Название программы в документе",
-        help_text="Отображается в карточке сотрудника для исторической точности"
-    )
+        help_text="Отображается в карточке сотрудника для исторической точности")
     training_date = models.DateField(
         verbose_name="Дата прохождения"
     )
@@ -246,6 +331,27 @@ class Training(models.Model):
     notes = models.TextField(
         blank=True,
         verbose_name="Примечания"
+    )
+    training_center = models.ForeignKey(
+        TrainingCenter,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Учебный центр"
+    )
+
+    # Для электробезопасности - группа по Приказу 811
+    electrical_safety_group = models.CharField(
+        max_length=10,
+        blank=True,
+        verbose_name="Группа по электробезопасности",
+        choices=[
+            ('I', 'I группа'),
+            ('II', 'II группа'),
+            ('III', 'III группа'),
+            ('IV', 'IV группа'),
+            ('V', 'V группа'),
+        ]
     )
 
     class Meta:
@@ -364,4 +470,6 @@ class ProgramNameMapping(models.Model):
         unique_together = ['variant_name', 'training_category']
 
     def __str__(self):
-        return f'"{self.variant_name}" → {self.get_training_category_display()}'
+        return f'"{
+            self.variant_name}" → {
+            self.get_training_category_display()}'
