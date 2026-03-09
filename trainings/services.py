@@ -14,72 +14,46 @@ def get_next_training_date(training_date, frequency_months):
 
 def check_employee_compliance(employee: Employee):
     """
-    Полная проверка соответствия требованиям с учетом:
-    - Постановления № 2464
-    - Федерального закона № 273-ФЗ (первая помощь педагогам)
-    - Законов о пожарной безопасности
-    - Приказа Минэнерго № 811 (электробезопасность)
+    Проверка сотрудника на соответствие требованиям по обучению
+    Учитываются ТОЛЬКО 4 основные категории:
+    - Охрана труда (Постановление № 2464)
+    - Пожарная безопасность (69-ФЗ, 123-ФЗ)
+    - Первая помощь (273-ФЗ, Постановление № 2464)
+    - Электробезопасность (Приказ № 811)
     """
     status = {
-        'compliant': True,
-        'violations': [],
-        'warnings': [],
-        'required_actions': [],
         'missing_programs': [],
         'missing_instructions': [],
         'expired_programs': [],
         'expired_instructions': [],
+        'recommendations': [],
     }
 
-    if employee.termination_date or not employee.is_active:
+    if employee.termination_date:
         return status
 
     today = timezone.now().date()
     programs = TrainingProgram.objects.all().select_related('category')
 
-    # 1. Проверка обучения по охране труда (Постановление № 2464 - 3 года)
-    safety_result = _check_safety_training(employee, programs, today)
-    status['missing_programs'].extend(safety_result['missing'])
-    status['expired_programs'].extend(safety_result['expired'])
+    # Проверка ТОЛЬКО по 4 основным категориям
+    category_checks = [
+        ('SAFETY', 'Охрана труда', _check_safety_training),
+        ('FIRE', 'Пожарная безопасность', _check_fire_training),
+        ('FIRST_AID', 'Первая помощь', _check_first_aid_training),
+        ('ELECTRICAL', 'Электробезопасность', _check_electrical_training),
+    ]
 
-    # 2. Проверка первой помощи (273-ФЗ для педагогов - 1 год)
-    first_aid_result = _check_first_aid_training(employee, programs, today)
-    status['missing_programs'].extend(first_aid_result['missing'])
-    status['expired_programs'].extend(first_aid_result['expired'])
+    for category_code, category_name, check_func in category_checks:
+        result = check_func(employee, programs, today)
+        if result['missing']:
+            status['missing_programs'].extend(result['missing'])
+        if result['expired']:
+            status['expired_programs'].extend(result['expired'])
 
-    # 3. Проверка пожарной безопасности (законы о ПБ)
-    fire_result = _check_fire_training(employee, programs, today)
-    status['missing_programs'].extend(fire_result['missing'])
-    status['expired_programs'].extend(fire_result['expired'])
-
-    # 4. Проверка электробезопасности (Приказ № 811)
-    electrical_result = _check_electrical_training(employee, programs, today)
-    status['missing_programs'].extend(electrical_result['missing'])
-    status['expired_programs'].extend(electrical_result['expired'])
-
-    # 5. Проверка инструктажей
+    # Проверка инструктажей
     instruction_result = _check_instructions(employee, today)
     status['missing_instructions'] = instruction_result['missing']
     status['expired_instructions'] = instruction_result['expired']
-
-    # 6. Проверка стажировки (для рабочих профессий при приеме)
-    if employee.hire_date:
-        days_since_hire = (today - employee.hire_date).days
-        if days_since_hire <= 90 and _is_worker_profession(employee):
-            internship_result = _check_internship(employee, today)
-            if internship_result['required']:
-                status['required_actions'].append({
-                    'type': 'REQUIRED_INTERNSHIP',
-                    'message': 'Требуется проведение стажировки на рабочем месте',
-                    'deadline': employee.hire_date + relativedelta(days=90)
-                })
-
-    # Определение общего статуса соответствия
-    if status['violations'] or status['expired_programs'] or status['expired_instructions']:
-        status['compliant'] = False
-
-    if status['missing_programs'] or status['missing_instructions']:
-        status['compliant'] = False
 
     return status
 

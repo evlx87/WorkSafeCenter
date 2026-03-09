@@ -13,24 +13,12 @@ class TrainingCategory(models.Model):
     FIRE = 'FIRE'
     FIRST_AID = 'FIRST_AID'
     ELECTRICAL = 'ELECTRICAL'
-    CIVIL_DEFENSE = 'CIVIL_DEFENSE'  # Гражданская оборона
-    ROAD_SAFETY = 'ROAD_SAFETY'  # Безопасность дорожного движения
-    WORKING_HEIGHT = 'WORKING_HEIGHT'
-    ANTITERROR = 'ANTITERROR'
-    ENVIRONMENTAL = 'ENVIRONMENTAL'  # Экологическая безопасность
-    OTHER = 'OTHER'
 
     CATEGORY_CHOICES = [
         (SAFETY, 'Охрана труда'),
         (FIRE, 'Пожарная безопасность'),
         (FIRST_AID, 'Первая помощь'),
         (ELECTRICAL, 'Электробезопасность'),
-        (CIVIL_DEFENSE, 'Гражданская оборона'),
-        (ROAD_SAFETY, 'Безопасность дорожного движения'),
-        (WORKING_HEIGHT, 'Работы на высоте'),
-        (ANTITERROR, 'Антитеррористическая защищенность'),
-        (ENVIRONMENTAL, 'Экологическая безопасность'),
-        (OTHER, 'Другое'),
     ]
 
     code = models.CharField(
@@ -66,7 +54,7 @@ class InstructionType(models.Model):
         ('SAFETY', 'Охрана труда'),
         ('ELECTRICAL', 'Электробезопасность'),
         ('FIRE', 'Пожарная безопасность'),
-        ('OTHER', 'Другое'),
+        # Убрали 'OTHER' - не используется
     )
 
     name = models.CharField(
@@ -88,7 +76,8 @@ class InstructionType(models.Model):
     frequency_months = models.PositiveIntegerField(
         default=0,
         verbose_name="Периодичность повтора (в месяцах)",
-        help_text="0 - если повтор не требуется (Вводный, Внеплановый, Целевой).")
+        help_text="0 - если повтор не требуется (Вводный, Внеплановый, Целевой)."
+    )
 
     class Meta:
         verbose_name = "Тип инструктажа"
