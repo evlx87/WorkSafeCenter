@@ -62,6 +62,20 @@
                   {% else %}
                     <span class="badge badge-success">Активен</span>
                   {% endif %}
+                  {% if employee.is_electrical_responsible %}
+                  <div>
+                      <span class="badge" style="background: #f39c12; color: white;">
+                          ⚡ Ответственный за электрохозяйство
+                      </span>
+                  </div>
+                  {% endif %}
+                  {% if employee.is_electrical_personnel %}
+                  <div>
+                      <span class="badge" style="background: #e67e22; color: white;">
+                          ⚡ Электротехнический персонал
+                      </span>
+                  </div>
+                  {% endif %}
               </div>
 
               {% if employee.is_safety_committee_member %}

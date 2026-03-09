@@ -94,51 +94,86 @@ class TrainingForm(forms.ModelForm):
         model = Training
         fields = [
             'program', 'employee', 'training_date', 'training_center',
-            'electrical_safety_group', 'document_scan', 'document_type',
-            'document_number', 'notes'
+            'electrical_safety_group', 'previous_electrical_group',
+            'document_scan', 'document_type', 'document_number', 'notes'
         ]
         widgets = {
-            'program': forms.Select(
-                attrs={
-                    'class': 'form-control'}),
-            'employee': forms.Select(
-                attrs={
-                    'class': 'form-control'}),
-            'training_date': forms.DateInput(
-                attrs={
-                    'class': 'form-control',
-                    'type': 'date'}),
-            'training_center': forms.Select(
-                attrs={
-                    'class': 'form-control'}),
-            'electrical_safety_group': forms.Select(
-                attrs={
-                    'class': 'form-control'}),
-            'document_type': forms.Select(
-                attrs={
-                    'class': 'form-control'}),
-            'document_number': forms.TextInput(
-                attrs={
-                    'class': 'form-control'}),
-            'notes': forms.Textarea(
-                attrs={
-                    'class': 'form-control',
-                    'rows': 3}),
+            'program': forms.Select(attrs={'class': 'form-control'}),
+            'employee': forms.Select(attrs={'class': 'form-control'}),
+            'training_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'training_center': forms.Select(attrs={'class': 'form-control'}),
+            'electrical_safety_group': forms.Select(attrs={'class': 'form-control'}),
+            'previous_electrical_group': forms.Select(attrs={'class': 'form-control'}),
+            'document_type': forms.Select(attrs={'class': 'form-control'}),
+            'document_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
     def clean(self):
         cleaned_data = super().clean()
         program = cleaned_data.get('program')
+        employee = cleaned_data.get('employee')
         electrical_group = cleaned_data.get('electrical_safety_group')
+        previous_group = cleaned_data.get('previous_electrical_group')
+        training_date = cleaned_data.get('training_date')
 
-        # Если программа по электробезопасности - группа обязательна
+        # Если программа по электробезопасности - обязательные проверки
         if program and program.category and program.category.code == 'ELECTRICAL':
+
+            # 1. Группа обязательна
             if not electrical_group:
                 self.add_error(
                     'electrical_safety_group',
                     'Для программ по электробезопасности необходимо указать группу (Приказ № 811)')
 
+            # 2. Проверка последовательности групп
+            if electrical_group and previous_group and training_date:
+                current_level = _get_group_level(electrical_group)
+                previous_level = _get_group_level(previous_group)
+
+                # Можно повышать только на 1 группу за раз
+                if current_level > previous_level + 1:
+                    self.add_error(
+                        'electrical_safety_group',
+                        f'Нельзя получить {electrical_group} группу сразу после {previous_group}. '
+                        f'Требуется промежуточное обучение.'
+                    )
+
+                # Нельзя понижать группу
+                if current_level < previous_level:
+                    self.add_error(
+                        'electrical_safety_group',
+                        'Нельзя понизить группу по электробезопасности. '
+                        'Для подтверждения текущей группы выберите ту же группу.')
+
+            # 3. Проверка требований для ответственного за электрохозяйство
+            if employee and employee.is_electrical_responsible:
+                if electrical_group and _get_group_level(electrical_group) < 4:
+                    self.add_error(
+                        'electrical_safety_group',
+                        'Для ответственных за электрохозяйство требуется минимум IV группа')
+
+            # 4. Проверка: не обучаться ли выше IV группы для ответственных
+            if employee and employee.is_electrical_responsible:
+                if electrical_group and _get_group_level(electrical_group) > 4:
+                    self.add_error(
+                        'electrical_safety_group',
+                        'Для ответственных за электрохозяйство максимальная группа - IV. '
+                        'Обучение выше IV группы не требуется.')
+
         return cleaned_data
+
+
+def _get_group_level(group):
+    """Вспомогательная функция для получения уровня группы"""
+    level_map = {
+        'I': 1,
+        'II': 2,
+        'III': 3,
+        'IV': 4,
+        'V': 5
+    }
+    return level_map.get(group, 0)
 
 
 class InternshipForm(forms.ModelForm):

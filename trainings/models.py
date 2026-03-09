@@ -76,8 +76,7 @@ class InstructionType(models.Model):
     frequency_months = models.PositiveIntegerField(
         default=0,
         verbose_name="Периодичность повтора (в месяцах)",
-        help_text="0 - если повтор не требуется (Вводный, Внеплановый, Целевой)."
-    )
+        help_text="0 - если повтор не требуется (Вводный, Внеплановый, Целевой).")
 
     class Meta:
         verbose_name = "Тип инструктажа"
@@ -335,13 +334,24 @@ class Training(models.Model):
         blank=True,
         verbose_name="Группа по электробезопасности",
         choices=[
+            ('I', 'I группа (неэлектротехнический персонал)'),
+            ('II', 'II группа (электротехнический персонал)'),
+            ('III', 'III группа (электротехнический персонал)'),
+            ('IV', 'IV группа (ответственные за электрохозяйство)'),
+            ('V', 'V группа (ответственные за электрохозяйство)'),
+        ],
+        help_text="Для ответственных за электрохозяйство мин. IV группа")
+    previous_electrical_group = models.CharField(
+        max_length=10,
+        blank=True,
+        verbose_name="Предыдущая группа",
+        choices=[
             ('I', 'I группа'),
             ('II', 'II группа'),
             ('III', 'III группа'),
             ('IV', 'IV группа'),
             ('V', 'V группа'),
-        ]
-    )
+        ])
 
     class Meta:
         verbose_name = "Обучение"

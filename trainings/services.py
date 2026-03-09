@@ -218,80 +218,147 @@ def _check_electrical_training(employee, programs, today):
     """
     Проверка обучения по электробезопасности
     Приказ Минэнерго РФ от 12.08.2022 № 811
+
+    Требования:
+    - Все сотрудники: I группа (ежегодно)
+    - Ответственные за электрохозяйство: IV группа (ежегодно)
+    - Электротехнический персонал: II-V группа по должности
+    - Группы присваиваются последовательно
     """
     result = {'missing': [], 'expired': []}
 
-    # Проверяем, требуется ли электробезопасность
-    requires_electrical = _requires_electrical_safety(employee)
+    # Определяем требуемую группу
+    required_group, min_group = _get_required_electrical_group(employee)
 
-    if not requires_electrical:
+    if not required_group:
         return result
 
     program = programs.filter(
         category__code='ELECTRICAL',
-        name__icontains='электробезопасност'
+        name__icontains='электробезопасность'
     ).first()
 
     if not program:
         return result
 
-    last_training = Training.objects.filter(
+    # Получаем все обучения по электробезопасности сотрудника
+    electrical_trainings = Training.objects.filter(
         employee=employee,
-        program=program
-    ).order_by('-training_date').first()
+        program__category__code='ELECTRICAL'
+    ).order_by('-training_date')
 
-    # По Приказу 811:
-    # - I группа - ежегодно
-    # - II-V группа - ежегодно (проверка знаний)
-    frequency_months = 12  # По умолчанию ежегодно
+    # Находим действующее обучение с максимальной группой
+    current_training = None
+    current_group = None
+    current_group_level = 0
 
-    if not last_training:
+    for training in electrical_trainings:
+        if training.electrical_safety_group:
+            group_level = _get_group_level(training.electrical_safety_group)
+            expiry = training.training_date + relativedelta(months=12)
+
+            # Проверяем, действует ли ещё это обучение
+            if expiry >= today:
+                if group_level > current_group_level:
+                    current_training = training
+                    current_group = training.electrical_safety_group
+                    current_group_level = group_level
+
+    required_group_level = _get_group_level(required_group)
+    min_group_level = _get_group_level(min_group) if min_group else 0
+
+    # Проверка 1: Есть ли вообще обучение по электробезопасности
+    if not current_training:
         result['missing'].append({
             'program': program,
-            'reason': 'Отсутствует обучение по электробезопасности',
+            'reason': f'Отсутствует обучение по электробезопасности (требуется {required_group} группа)',
             'deadline': employee.hire_date + relativedelta(days=30) if employee.hire_date else today,
-            'legal_basis': 'Приказ Минэнерго № 811'
+            'legal_basis': 'Приказ Минэнерго № 811',
+            'required_group': required_group,
+            'min_group': min_group
         })
-    elif frequency_months > 0:
-        expiry = last_training.training_date + \
-            relativedelta(months=frequency_months)
-        if expiry < today:
-            result['expired'].append({
-                'program': program,
-                'reason': f'Истек срок обучения по электробезопасности (истек {expiry.strftime("%d.%m.%Y")})',
-                'expired_date': expiry,
-                'legal_basis': 'Приказ Минэнерго № 811'
-            })
+        return result
+
+    # Проверка 2: Не истёк ли срок действия
+    expiry_date = current_training.training_date + relativedelta(months=12)
+    if expiry_date < today:
+        result['expired'].append({
+            'program': program,
+            'reason': f'Истек срок обучения по электробезопасности (истек {expiry_date.strftime("%d.%m.%Y")})',
+            'expired_date': expiry_date,
+            'legal_basis': 'Приказ Минэнерго № 811',
+            'current_group': current_group,
+            'required_group': required_group
+        })
+        return result
+
+    # Проверка 3: Соответствует ли группа требованиям
+    if current_group_level < min_group_level:
+        result['missing'].append({
+            'program': program,
+            'reason': f'Недостаточная группа по электробезопасности (имеется {current_group}, требуется мин. {min_group})',
+            'deadline': expiry_date - relativedelta(days=30),
+            'legal_basis': 'Приказ Минэнерго № 811',
+            'current_group': current_group,
+            'required_group': required_group,
+            'min_group': min_group
+        })
+
+    # Проверка 4: Предупреждение об истечении срока (за 30 дней)
+    if expiry_date < today + relativedelta(days=30):
+        result['expired'].append({
+            'program': program,
+            'reason': f'Срок обучения истекает {expiry_date.strftime("%d.%m.%Y")}',
+            'expired_date': expiry_date,
+            'legal_basis': 'Приказ Минэнерго № 811',
+            'current_group': current_group,
+            'warning': True
+        })
 
     return result
+
+
+def _get_required_electrical_group(employee):
+    """
+    Определяет требуемую и минимальную группу по электробезопасности
+
+    Returns:
+        tuple: (required_group, min_group) или (None, None) если не требуется
+    """
+    # Ответственный за электрохозяйство - IV группа (обязательно)
+    if employee.is_electrical_responsible:
+        return ('IV', 'IV')
+
+    # Электротехнический персонал - по должности (II-V группа)
+    if employee.is_electrical_personnel:
+        # Можно расширить логику для определения конкретной группы по должности
+        return ('III', 'II')  # По умолчанию III, мин. II
+
+    # Все остальные сотрудники - I группа
+    return ('I', 'I')
+
+
+def _get_group_level(group):
+    """
+    Возвращает числовой уровень группы для сравнения
+    I=1, II=2, III=3, IV=4, V=5
+    """
+    level_map = {
+        'I': 1,
+        'II': 2,
+        'III': 3,
+        'IV': 4,
+        'V': 5
+    }
+    return level_map.get(group, 0)
 
 
 def _requires_electrical_safety(employee: Employee) -> bool:
     """
     Определяет, требуется ли сотруднику обучение по электробезопасности
-    согласно Приказу № 811
     """
-    if not employee.position:
-        return False
-
-    # Ключевые слова для определения необходимости
-    electrical_keywords = [
-        'электр', 'энерг', 'напряж', 'установк', 'щит', 'кабель',
-        'провод', 'освещ', 'оборудовани', 'монтаж', 'ремонт'
-    ]
-
-    position_name = employee.position.name.lower()
-
-    # Проверяем должность
-    if any(keyword in position_name for keyword in electrical_keywords):
-        return True
-
-    # Проверяем категорию сотрудника
-    # По Приказу 811 - все работающие с электроустановками
-    if employee.is_executive or employee.is_safety_specialist:
-        return True
-
-    return False
+    # Всегда требуется хотя бы I группа
+    return True
 
 
 def _check_instructions(employee, today):

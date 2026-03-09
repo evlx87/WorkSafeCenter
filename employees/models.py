@@ -1,9 +1,8 @@
 from django.db import models
 from encrypted_model_fields.fields import EncryptedCharField, EncryptedEmailField
 
+
 # Create your models here.
-
-
 class Employee(models.Model):
     first_name = models.CharField(
         max_length=100,
@@ -79,6 +78,14 @@ class Employee(models.Model):
         default=False,
         verbose_name="Педагогический работник",
         help_text="Требуется для назначения обучения по Первой помощи.")
+    is_electrical_responsible = models.BooleanField(
+        default=False,
+        verbose_name="Ответственный за электрохозяйство",
+        help_text="Требуется обучение по электробезопасности до IV группы (Приказ № 811)")
+    is_electrical_personnel = models.BooleanField(
+        default=False,
+        verbose_name="Электротехнический персонал",
+        help_text="Требуется обучение по электробезопасности до II-V группы")
     exempt_from_safety_instruction = models.BooleanField(
         default=False,
         verbose_name="Освобожден от первичного инструктажа",
