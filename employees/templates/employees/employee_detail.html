@@ -168,28 +168,28 @@
     <p><strong>Не пройдено обязательное обучение:</strong></p>
     <ul>
         {% for prog in compliance.missing_programs %}
-            <li>{{ prog.name }} <a href="{% url 'trainings:training_create' employee.pk %}?program={{ prog.id }}">[Добавить]</a></li>
+            <li>{{ prog.program.name }} – {{ prog.reason }}
+                <a href="{% url 'trainings:training_create' employee.pk %}?program={{ prog.program.id }}">[Добавить]</a>
+            </li>
         {% endfor %}
     </ul>
-    {% endif %}
-
     {% if compliance.expired_programs %}
     <p><strong>Истек срок действия обучения:</strong></p>
     <ul>
         {% for prog in compliance.expired_programs %}
-            <li style="color: var(--danger-color);">{{ prog.name }} (Срок истек) <a href="{% url 'trainings:training_create' employee.pk %}?program={{ prog.id }}">[Обновить]</a></li>
+            <li style="color: var(--danger-color);">{{ prog.program.name }} ({{ prog.reason }})
+                <a href="{% url 'trainings:training_create' employee.pk %}?program={{ prog.program.id }}">[Обновить]</a>
+            </li>
         {% endfor %}
-    </ul>
-    {% endif %}
 
     {% if compliance.missing_instructions or compliance.expired_instructions %}
     <p><strong>Проблемы с инструктажами:</strong></p>
     <ul>
         {% for instr in compliance.missing_instructions %}
-            <li>Не проведен: {{ instr.name }}</li>
+            <li>Не проведен: {{ instr.type.name }}</li>
         {% endfor %}
         {% for instr in compliance.expired_instructions %}
-            <li style="color: var(--danger-color);">Просрочен: {{ instr.name }}</li>
+            <li style="color: var(--danger-color);">Просрочен: {{ instr.type.name }}</li>
         {% endfor %}
     </ul>
     <a href="{% url 'trainings:safety_training_create' employee.pk %}" class="button" style="font-size: 0.8em;">Провести инструктаж</a>

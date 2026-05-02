@@ -5,6 +5,75 @@ from employees.models import Employee
 from .models import Training, Instruction, TrainingProgram, InstructionType, Internship
 
 
+def _is_program_required_for_employee(employee, program):
+    """
+    Определяет, требуется ли сотруднику данная программа обучения
+    """
+    category_code = program.category.code if program.category else None
+
+    # 1. Если программа обязательна для всех
+    if program.is_mandatory:
+        return True
+
+    # 2. Проверка по целевым должностям
+    if program.target_positions.exists():
+        if employee.position and program.target_positions.filter(
+                id=employee.position.id
+        ).exists():
+            return True
+
+    # 3. Проверка по категории и статусу сотрудника
+    if category_code == 'SAFETY':  # Охрана труда
+        if (employee.is_executive or
+                employee.is_safety_committee_member or
+                employee.is_safety_specialist):
+            return True
+        if not employee.exempt_from_safety_instruction:
+            return True
+
+    elif category_code == 'FIRE':  # Пожарная безопасность
+        if employee.is_executive or not employee.exempt_from_safety_instruction:
+            return True
+
+    elif category_code == 'FIRST_AID':  # Первая помощь
+        if (employee.is_executive or
+                employee.is_pedagogical or
+                employee.is_safety_committee_member):
+            return True
+
+    elif category_code == 'ELECTRICAL':  # Электробезопасность
+        return True  # требуется всем согласно приказу №811
+
+    return False
+
+
+def _get_required_programs(employee):
+    """
+    Возвращает список программ обучения, обязательных для данного сотрудника.
+    Использует логику, аналогичную reports/views.py
+    """
+    all_programs = TrainingProgram.objects.filter(
+        category__is_active=True
+    ).select_related('category')
+    required = []
+    for program in all_programs:
+        if _is_program_required_for_employee(employee, program):
+            required.append(program)
+    return required
+
+
+def _make_program_item(program, reason, deadline=None, expired_date=None):
+    """
+    Формирует словарь с информацией о проблеме обучающей программы для шаблона
+    """
+    return {
+        'program': program,
+        'reason': reason,
+        'deadline': deadline,
+        'expired_date': expired_date,
+    }
+
+
 def get_next_training_date(training_date, frequency_months):
     """Вычисляет дату следующего обучения."""
     if frequency_months > 0:
@@ -33,24 +102,26 @@ def check_employee_compliance(employee: Employee):
         return status
 
     today = timezone.now().date()
-    programs = TrainingProgram.objects.all().select_related('category')
 
-    # Проверка ТОЛЬКО по 4 основным категориям
-    category_checks = [
-        ('SAFETY', 'Охрана труда', _check_safety_training),
-        ('FIRE', 'Пожарная безопасность', _check_fire_training),
-        ('FIRST_AID', 'Первая помощь', _check_first_aid_training),
-        ('ELECTRICAL', 'Электробезопасность', _check_electrical_training),
-    ]
+    # 1. Проверка обязательных программ обучения
+    required_programs = _get_required_programs(employee)
+    for program in required_programs:
+        last_training = Training.objects.filter(
+            employee=employee, program=program
+        ).order_by('-training_date').first()
 
-    for category_code, category_name, check_func in category_checks:
-        result = check_func(employee, programs, today)
-        if result['missing']:
-            status['missing_programs'].extend(result['missing'])
-        if result['expired']:
-            status['expired_programs'].extend(result['expired'])
+        if not last_training:
+            status['missing_programs'].append(
+                _make_program_item(program, 'Обучение не пройдено')
+            )
+        elif program.frequency_months > 0:
+            expiry = last_training.training_date + relativedelta(months=program.frequency_months)
+            if expiry < today:
+                status['expired_programs'].append(
+                    _make_program_item(program, f'Срок истёк {expiry.strftime("%d.%m.%Y")}')
+                )
 
-    # Проверка инструктажей
+    # 2. Проверка инструктажей (оставляем старую реализацию, она работает)
     instruction_result = _check_instructions(employee, today)
     status['missing_instructions'] = instruction_result['missing']
     status['expired_instructions'] = instruction_result['expired']
