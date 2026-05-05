@@ -23,7 +23,7 @@
 
 ### 👥 Управление персоналом (employees)
 - **Иерархическая структура**: Ведение базы данных подразделений (отделов) и должностей
-- **Карточки сотрудников**: Учёт ФИО, даты рождения, текущего статуса (работает, уволен, декрет)
+- **Карточки сотрудников**: Полный учёт ФИО, даты рождения, статусов (работает, уволен, декрет, и.о. директора, специалист по ОТ и др.)
 - **Связи**: Автоматическая привязка сотрудников к рабочим местам для последующей оценки рисков
 - **Шифрование данных**: Email и телефон хранятся в зашифрованном виде (encrypted_model_fields)
 - **Массовый импорт**: Загрузка данных из Excel с интерактивным режимом обработки ошибок
@@ -38,13 +38,12 @@
 
 ### 🏥 Медицинские осмотры (medical_checks)
 - **Мониторинг здоровья**: Учёт периодических и предварительных медосмотров
-- **Предиктивная аналитика**: Система автоматически вычисляет дату следующего осмотра
-- **Статусы**: Подсветка "просроченных", "истекающих" и "действующих" записей
+- **Ручное планирование**: Пользователь задаёт дату следующего осмотра; система автоматически вычисляет статусы («просрочен», «истекает», «действует»)
 - **Шифрование результатов**: Результаты осмотров хранятся в зашифрованном виде
 
 ### ⚖️ СОУТ и Риски (assessments)
 - **Специальная оценка (СОУТ)**: Ведение реестра рабочих мест с указанием классов условий труда (1, 2, 3.1-3.4, 4)
-- **Автоматический расчёт**: Дата следующей СОУТ рассчитывается автоматически (5 лет)
+- **Автоматический расчёт**: Дата следующей СОУТ рассчитывается автоматически (5 лет), если не указана вручную
 - **Оценка рисков**: Регистрация идентифицированных опасностей и оценка уровня профессиональных рисков
 - **Планирование**: Экспорт плана СОУТ в Excel
 - **Статусы**: "Не проводилась", "Просрочена", "Срок подходит", "Актуальна"
@@ -57,8 +56,8 @@
 
 ### 🚨 Инциденты (incidents)
 - **Регистратор происшествий**: Учёт несчастных случаев и микротравм
-- **Классификация**: Типы инцидентов (ACCIDENT, MICROTRAUMA)
-- **Статистика**: Отчёты по тяжести и частоте инцидентов
+- **Классификация**: Типы инцидентов (Несчастный случай, Микротравма)
+- **Статистика**: Отчёты по типам и частоте инцидентов
 - **Принятые меры**: Документирование действий после инцидента
 
 ### 🏢 Организация (organization)
@@ -73,7 +72,7 @@
 - **Просроченные медосмотры**: Список сотрудников с истекающими осмотрами
 - **Просроченные инструктажи**: Список сотрудников с просроченным обучением
 - **План-график обучения**: Формирование списков на обучение с приоритетами
-- **Статистика инцидентов**: Анализ по типам и тяжести
+- **Статистика инцидентов**: Анализ по типам
 - **СОУТ отчёт**: Статус проведения по рабочим местам
 - **Профессиональные риски**: Анализ идентифицированных рисков
 
@@ -86,57 +85,57 @@
 ## Архитектура проекта
 
 ```
-worksafe-center/
-├── accounts/              # Аутентификация и профили пользователей
-│   ├── management/        # Команды: create_portal_user, generate_keys, migrate_tokens
-│   ├── templates/         # Шаблоны входа
-│   ├── backends.py        # CertificateAuthBackend (2FA по файлу-ключу)
-│   ├── middleware.py      # LoginRequiredMiddleware
-│   └── models.py          # UserProfile, LoginAudit
+WorkSafeCenter/
+├── accounts/ # Аутентификация и профили пользователей
+│ ├── management/ # Команды: create_portal_user, generate_keys, migrate_tokens
+│ ├── templates/ # Шаблоны входа
+│ ├── backends.py # CertificateAuthBackend (2FA по файлу-ключу)
+│ ├── middleware.py # LoginRequiredMiddleware
+│ └── models.py # UserProfile, LoginAudit
 │
-├── employees/             # Управление сотрудниками
-│   ├── management/        # Команды: import, export, cleanup, setup_training_data
-│   ├── models.py          # Employee (с шифрованием полей)
-│   └── views.py           # CRUD операции
+├── employees/ # Управление сотрудниками
+│ ├── management/ # Команды: import, export, cleanup, setup_training_data
+│ ├── models.py # Employee (с шифрованием полей)
+│ └── views.py # CRUD операции
 │
-├── trainings/             # Обучение и инструктажи
-│   ├── models.py          # TrainingProgram, Training, Instruction, InstructionType
-│   ├── services.py        # check_employee_compliance (проверка соответствия)
-│   ├── forms.py           # Валидация групп по электробезопасности
-│   └── validators.py      # validate_pdf_or_image
+├── trainings/ # Обучение и инструктажи
+│ ├── models.py # TrainingProgram, Training, Instruction, InstructionType
+│ ├── services.py # check_employee_compliance (проверка соответствия)
+│ ├── forms.py # Валидация групп по электробезопасности
+│ └── validators.py # validate_pdf_or_image
 │
-├── medical_checks/        # Медосмотры
-│   └── models.py          # MedicalCheck (is_overdue, days_to_expire)
+├── medical_checks/ # Медосмотры
+│ └── models.py # MedicalCheck (is_overdue, days_to_expire)
 │
-├── assessments/           # СОУТ и риски
-│   ├── models.py          # Workplace, SOUTAssessment, RiskAssessment
-│   ├── services.py        # check_sout_deadlines, export_sout_plan_to_excel
-│   └── views.py           # SOUTPlanningListView
+├── assessments/ # СОУТ и риски
+│ ├── models.py # Workplace, SOUTAssessment, RiskAssessment
+│ ├── services.py # check_sout_deadlines, export_sout_plan_to_excel
+│ └── views.py # SOUTPlanningListView
 │
-├── documents/             # Документы
-│   └── models.py          # Document, Category (с контролем сроков)
+├── documents/ # Документы
+│ └── models.py # Document, Category (с контролем сроков)
 │
-├── incidents/             # Инциденты
-│   └── models.py          # Incident (ACCIDENT, MICROTRAUMA)
+├── incidents/ # Инциденты
+│ └── models.py # Incident (ACCIDENT, MICROTRAUMA)
 │
-├── organization/          # Структура организации
-│   ├── models.py          # OrganizationSafetyInfo, Department, Position, Site
-│   └── management/        # load_organization_info
+├── organization/ # Структура организации
+│ ├── models.py # OrganizationSafetyInfo, Department, Position, Site
+│ └── management/ # load_organization_info
 │
-├── reports/               # Отчёты и аналитика
-│   ├── views.py           # ComplianceDashboardView, training_plan_report
-│   └── templates/         # compliance_dashboard, training_plan
+├── reports/ # Отчёты и аналитика
+│ ├── views.py # ComplianceDashboardView, training_plan_report
+│ └── templates/ # compliance_dashboard, training_plan
 │
-├── notifications/         # Уведомления
-│   └── management/        # generate_notifications
+├── notifications/ # Уведомления
+│ └── management/ # generate_notifications
 │
-├── config/                # Настройки Django
-│   ├── settings/          # base.py, development.py, production.py
-│   └── urls.py            # Маршрутизация
+├── config/ # Настройки Django
+│ ├── settings/ # base.py, development.py, production.py
+│ └── urls.py # Маршрутизация
 │
-└── static/                # CSS, JS, favicon
+└── static/ # CSS, JS, favicon
 ```
-
+---
 ---
 
 ## Модули системы
@@ -173,20 +172,24 @@ worksafe-center/
 
 ### employees (Сотрудники)
 
-**Модель Employee:**
+**Модель Employee** включает все необходимые поля для кадрового учёта и охраны труда:
 ```python
 class Employee(models.Model):
-    first_name, last_name, middle_name  # ФИО
-    position, department, workplace     # Связи
-    birth_date, hire_date               # Даты
+    first_name, last_name, middle_name, previous_last_name
+    position, department, workplace
+    birth_date, hire_date, termination_date, termination_order_number
     email, phone                        # Зашифрованы
-    is_active, termination_date         # Статус
-    is_executive                        # Руководство
-    is_pedagogical                      # Педагоги (1-я помощь)
-    is_electrical_responsible           # Ответственный за электрохозяйство
-    is_electrical_personnel             # Электротехнический персонал
+    is_active                           # Активен
+    is_executive                        # Руководящий состав
+    on_parental_leave                   # Декретный отпуск
+    is_safety_specialist                # Специалист по ОТ
     is_safety_committee_member          # Член комиссии по ОТ
-    exempt_from_safety_instruction      # Освобождён от инструктажа
+    is_safety_committee_chair           # Председатель комиссии
+    is_acting_director                  # И.о. директора
+    is_pedagogical                      # Педагогический работник
+    is_electrical_responsible           # Отв. за электрохозяйство
+    is_electrical_personnel             # Электротехнический персонал
+    exempt_from_safety_instruction      # Освобождён от первичного инструктажа
 ```
 
 **Команды:**
@@ -237,12 +240,12 @@ python manage.py import_employee_data data.xlsx --auto-create-employees
 
 **URL-маршруты:**
 ```
-/trainings/                          # Список программ
-/trainings/programs/create/          # Создать программу
+/trainings/                                 # Список программ
+/trainings/programs/create/                 # Создать программу
 /trainings/employee/<pk>/training/add/      # Добавить обучение
 /trainings/employee/<pk>/instruction/add/   # Добавить инструктаж
-/trainings/centers/                  # Учебные центры
-/trainings/internships/              # Стажировки
+/trainings/centers/                         # Учебные центры
+/trainings/internships/                     # Стажировки
 ```
 
 ---
@@ -254,12 +257,12 @@ python manage.py import_employee_data data.xlsx --auto-create-employees
 class MedicalCheck(models.Model):
     employee           # Сотрудник
     check_date         # Дата осмотра
-    next_check_date    # Дата следующего
+    next_check_date    # Дата следующего (заполняется вручную)
     result             # Зашифрованные результаты
     is_valid           # Действителен
     
     @property
-    def is_overdue     # Просрочен ли
+    def is_overdue     # Просрочен ли (на основе next_check_date)
     @property
     def days_to_expire # Дней до истечения
 ```
@@ -305,10 +308,10 @@ class MedicalCheck(models.Model):
 
 **URL-маршруты:**
 ```
-/assessments/workplaces/              # Реестр РМ
-/assessments/workplaces/create/       # Создать РМ
+/assessments/workplaces/                   # Реестр РМ
+/assessments/workplaces/create/            # Создать РМ
 /assessments/workplaces/<pk>/sout/manage/  # Управление СОУТ
-/assessments/planning/                # Планирование СОУТ
+/assessments/planning/                     # Планирование СОУТ
 ```
 
 ---
@@ -714,18 +717,19 @@ FIELD_ENCRYPTION_KEY='ваш_32-символьный_ключ'
 
 ## Технологический стек
 
-| Компонент | Технология | Версия |
-|-----------|------------|--------|
-| Backend | Python | 3.10+ |
-| Framework | Django | 5.x |
-| Database | PostgreSQL | 13+ (рекомендуется) |
-| ORM | Django ORM | — |
-| Security | encrypted_model_fields | — |
-| Excel | openpyxl | — |
-| Dates | python-dateutil | — |
-| Frontend | Django Templates | — |
-| CSS | Custom (Design Tokens) | — |
-| JS | Vanilla JS | — |
+| Компонент | Технология |
+|-----------|------------|
+| Backend | Python 3.10+ |
+| Framework | Django 4.2+ / 5.x |
+| Database | PostgreSQL 13+ |
+| ORM | Django ORM |
+| Security | encrypted_model_fields |
+| Excel | openpyxl |
+| Dates | python-dateutil |
+| Env config | python-dotenv |
+| Frontend | Django Templates |
+| CSS | Custom (Design Tokens) |
+| JS | Vanilla JS |
 
 ---
 
@@ -825,11 +829,11 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8000
 ### Детальные маршруты (примеры)
 ```
 # Сотрудники
-/employees/                           # Список
-/employees/<pk>/                      # Карточка
-/employees/create/                    # Создать
-/employees/<pk>/update/               # Редактировать
-/employees/<pk>/delete/               # Удалить
+/employees/                                  # Список
+/employees/<pk>/                             # Карточка
+/employees/create/                           # Создать
+/employees/<pk>/update/                      # Редактировать
+/employees/<pk>/delete/                      # Удалить
 
 # Обучение
 /trainings/employee/<pk>/training/add/       # Добавить обучение
