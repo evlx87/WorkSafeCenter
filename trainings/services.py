@@ -3,48 +3,7 @@ from django.utils import timezone
 
 from employees.models import Employee
 from .models import Training, Instruction, TrainingProgram, InstructionType, Internship
-
-
-def _is_program_required_for_employee(employee, program):
-    """
-    Определяет, требуется ли сотруднику данная программа обучения
-    """
-    category_code = program.category.code if program.category else None
-
-    # 1. Если программа обязательна для всех
-    if program.is_mandatory:
-        return True
-
-    # 2. Проверка по целевым должностям
-    if program.target_positions.exists():
-        if employee.position and program.target_positions.filter(
-                id=employee.position.id
-        ).exists():
-            return True
-
-    # 3. Проверка по категории и статусу сотрудника
-    if category_code == 'SAFETY':  # Охрана труда
-        if (employee.is_executive or
-                employee.is_safety_committee_member or
-                employee.is_safety_specialist):
-            return True
-        if not employee.exempt_from_safety_instruction:
-            return True
-
-    elif category_code == 'FIRE':  # Пожарная безопасность
-        if employee.is_executive or not employee.exempt_from_safety_instruction:
-            return True
-
-    elif category_code == 'FIRST_AID':  # Первая помощь
-        if (employee.is_executive or
-                employee.is_pedagogical or
-                employee.is_safety_committee_member):
-            return True
-
-    elif category_code == 'ELECTRICAL':  # Электробезопасность
-        return True  # требуется всем согласно приказу №811
-
-    return False
+from .requirements import is_program_required_for_employee
 
 
 def _get_required_programs(employee):
@@ -57,7 +16,7 @@ def _get_required_programs(employee):
     ).select_related('category')
     required = []
     for program in all_programs:
-        if _is_program_required_for_employee(employee, program):
+        if is_program_required_for_employee(employee, program):
             required.append(program)
     return required
 

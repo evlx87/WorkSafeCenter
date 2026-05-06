@@ -10,6 +10,7 @@ from employees.models import Employee
 from incidents.models import Incident
 from medical_checks.models import MedicalCheck
 from trainings.models import Training, TrainingProgram, TrainingCategory
+from trainings.requirements import is_program_required_for_employee
 from trainings.services import check_employee_compliance
 
 
@@ -102,7 +103,7 @@ def training_plan_report(request):
     for emp in all_employees:
         for program in programs:
             # Проверяем, нужна ли эта программа сотруднику
-            if not _is_program_required_for_employee(emp, program):
+            if not is_program_required_for_employee(emp, program):
                 continue
 
             # Ищем последнее обучение по этой программе
@@ -164,61 +165,6 @@ def training_plan_report(request):
         'selected_category': selected_category,
         'planning_horizon_months': planning_horizon_months,
     })
-
-
-def _is_program_required_for_employee(employee, program):
-    """
-    Определяет, требуется ли сотруднику данная программа обучения
-    """
-    category_code = program.category.code if program.category else None
-
-    # 1. Если программа обязательна для всех
-    if program.is_mandatory:
-        return True
-
-    # 2. Проверка по целевым должностям
-    if program.target_positions.exists():
-        if employee.position and program.target_positions.filter(
-                id=employee.position.id
-        ).exists():
-            return True
-
-    # 3. Проверка по категории и статусу сотрудника
-    if category_code == 'SAFETY':  # Охрана труда
-        # Нужна руководителям, членам комиссии, специалистам по ОТ
-        if (employee.is_executive or
-                employee.is_safety_committee_member or
-                employee.is_safety_specialist):
-            return True
-        # Также нужна всем рабочим (если не освобождены)
-        if not employee.exempt_from_safety_instruction:
-            return True
-
-    elif category_code == 'FIRE':  # Пожарная безопасность
-        # Нужна руководителям и всем сотрудникам
-        if employee.is_executive or not employee.exempt_from_safety_instruction:
-            return True
-
-    elif category_code == 'FIRST_AID':  # Первая помощь
-        # Нужна руководителям, педагогам, членам комиссии
-        if (employee.is_executive or
-                employee.is_pedagogical or
-                employee.is_safety_committee_member):
-            return True
-
-    elif category_code == 'ELECTRICAL':  # Электробезопасность
-        # Нужна всем (минимум 1 группа)
-        return True
-
-    elif category_code == 'WORKING_HEIGHT':  # Работы на высоте
-        # Только если должность требует
-        if employee.position and any(
-                keyword in employee.position.name.lower()
-                for keyword in ['монтажник', 'высот', 'кровель', 'строитель']
-        ):
-            return True
-
-    return False
 
 
 def _calculate_priority(employee, program, expiry_date, today):
