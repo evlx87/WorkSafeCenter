@@ -104,6 +104,21 @@ class TrainingCreateView(CreateView):
     form_class = TrainingForm
     template_name = 'trainings/training_form.html'
 
+    def get_initial(self):
+        initial = super().get_initial()
+        employee = get_object_or_404(Employee, pk=self.kwargs['employee_pk'])
+        program_id = self.request.GET.get('program')
+        if program_id:
+            program = get_object_or_404(TrainingProgram, pk=program_id)
+            if program.category and program.category.code == 'ELECTRICAL':
+                last_training = Training.objects.filter(
+                    employee=employee,
+                    program__category__code='ELECTRICAL'
+                ).order_by('-training_date').first()
+                if last_training and last_training.electrical_safety_group:
+                    initial['previous_electrical_group'] = last_training.electrical_safety_group
+        return initial
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['employee'] = get_object_or_404(
@@ -228,7 +243,8 @@ class InternshipCreateView(CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['employee'] = get_object_or_404(Employee, pk=self.kwargs['employee_pk'])
+        context['employee'] = get_object_or_404(
+            Employee, pk=self.kwargs['employee_pk'])
         return context
 
     def form_valid(self, form):
@@ -237,7 +253,9 @@ class InternshipCreateView(CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse_lazy('employees:employee_detail', kwargs={'pk': self.kwargs['employee_pk']})
+        return reverse_lazy(
+            'employees:employee_detail', kwargs={
+                'pk': self.kwargs['employee_pk']})
 
 
 class InternshipUpdateView(UpdateView):
