@@ -370,6 +370,33 @@ class Training(models.Model):
             )
         super().save(*args, **kwargs)
 
+    def get_effective_frequency(self):
+        """Возвращает фактическую периодичность с учётом особенностей сотрудника."""
+        base_freq = self.program.frequency_months
+        if not self.employee or not self.program.category:
+            return base_freq
+
+        category_code = self.program.category.code
+        # Педагоги – ежегодная первая помощь
+        if category_code == 'FIRST_AID' and self.employee.is_pedagogical:
+            return 12
+        # Для ответственных за электрохозяйство – ежегодно
+        if category_code == 'ELECTRICAL' and self.employee.is_electrical_responsible:
+            return 12
+        # Для электротехнического персонала – ежегодно
+        if category_code == 'ELECTRICAL' and self.employee.is_electrical_personnel:
+            return 12
+        return base_freq
+
+    def save(self, *args, **kwargs):
+        effective_freq = self.get_effective_frequency()
+        if effective_freq > 0:
+            from dateutil.relativedelta import relativedelta
+            self.next_training_date = self.training_date + relativedelta(months=effective_freq)
+        else:
+            self.next_training_date = None
+        super().save(*args, **kwargs)
+
 
 class Instruction(models.Model):
     instruction_type = models.ForeignKey(
