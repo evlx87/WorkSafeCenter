@@ -45,9 +45,9 @@
             </div>
 
             <div style="margin-left: auto;">
-                <button type="button" class="button" onclick="exportToExcel()">
+                <a href="{% url 'reports:training_plan_export' %}?{{ request.GET.urlencode }}" class="button">
                     📊 Экспорт в Excel
-                </button>
+                </a>
             </div>
         </div>
     </form>

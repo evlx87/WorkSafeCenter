@@ -1,15 +1,20 @@
 from datetime import timedelta
 
+import openpyxl
 from dateutil.relativedelta import relativedelta
 from django.db.models import Count
-from django.shortcuts import render, get_object_or_404
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
+from django.views.generic import TemplateView
+from openpyxl.styles import Font, PatternFill
 
 from employees.models import Employee
 from incidents.models import Incident
 from medical_checks.models import MedicalCheck
 from trainings.models import Training, TrainingProgram, TrainingCategory
 from trainings.requirements import is_program_required_for_employee
+from trainings.services import check_employee_compliance
 
 
 # Create your views here.
@@ -180,59 +185,152 @@ def training_plan_report(request):
     })
 
 
-def _is_program_required_for_employee(employee, program):
+def export_training_plan_excel(request):
     """
-    Определяет, требуется ли сотруднику данная программа обучения
+    Экспорт плана обучения в Excel.
+    Использует ту же логику, что и training_plan_report.
     """
-    category_code = program.category.code if program.category else None
+    programs = TrainingProgram.objects.all().select_related('category')
+    categories = TrainingCategory.objects.filter(is_active=True)
 
-    # 1. Если программа обязательна для всех
-    if program.is_mandatory:
-        return True
+    selected_program_id = request.GET.get('program')
+    selected_category = request.GET.get('category')
+    planning_horizon_months = int(request.GET.get('horizon', 6))
 
-    # 2. Проверка по целевым должностям
-    if program.target_positions.exists():
-        if employee.position and program.target_positions.filter(
-                id=employee.position.id
-        ).exists():
-            return True
+    selected_program = None
+    today = timezone.now().date()
+    horizon_date = today + relativedelta(months=planning_horizon_months)
 
-    # 3. Проверка по категории и статусу сотрудника
-    if category_code == 'SAFETY':  # Охрана труда
-        # Нужна руководителям, членам комиссии, специалистам по ОТ
-        if (employee.is_executive or
-                employee.is_safety_committee_member or
-                employee.is_safety_specialist):
-            return True
-        # Также нужна всем рабочим (если не освобождены)
-        if not employee.exempt_from_safety_instruction:
-            return True
+    if selected_program_id:
+        selected_program = get_object_or_404(TrainingProgram, id=selected_program_id)
+        programs = programs.filter(id=selected_program_id)
+    elif selected_category:
+        programs = programs.filter(category__code=selected_category)
 
-    elif category_code == 'FIRE':  # Пожарная безопасность
-        # Нужна руководителям и всем сотрудникам
-        if employee.is_executive or not employee.exempt_from_safety_instruction:
-            return True
+    all_employees = Employee.objects.filter(
+        is_active=True,
+        termination_date__isnull=True
+    ).select_related('position', 'department')
 
-    elif category_code == 'FIRST_AID':  # Первая помощь
-        # Нужна руководителям, педагогам, членам комиссии
-        if (employee.is_executive or
-                employee.is_pedagogical or
-                employee.is_safety_committee_member):
-            return True
+    # ── Сбор данных (та же оптимизированная логика) ──
+    all_trainings = Training.objects.filter(
+        employee__in=all_employees,
+        program__in=programs
+    ).select_related('employee', 'program').order_by('employee', 'program', '-training_date')
 
-    elif category_code == 'ELECTRICAL':  # Электробезопасность
-        # Нужна всем (минимум 1 группа)
-        return True
+    trainings_dict = {}
+    for training in all_trainings:
+        key = (training.employee_id, training.program_id)
+        if key not in trainings_dict:
+            trainings_dict[key] = training
 
-    elif category_code == 'WORKING_HEIGHT':  # Работы на высоте
-        # Только если должность требует
-        if employee.position and any(
-                keyword in employee.position.name.lower()
-                for keyword in ['монтажник', 'высот', 'кровель', 'строитель']
-        ):
-            return True
+    employees_to_train = []
+    for emp in all_employees:
+        for program in programs:
+            if not is_program_required_for_employee(emp, program):
+                continue
 
-    return False
+            last_training = trainings_dict.get((emp.id, program.id))
+
+            needs_training = False
+            reason = ""
+            expiry_date = None
+
+            if last_training:
+                if program.frequency_months > 0:
+                    expiry_date = last_training.training_date + relativedelta(
+                        months=program.frequency_months
+                    )
+                    if expiry_date <= horizon_date:
+                        needs_training = True
+                        if expiry_date < today:
+                            reason = f"Просрочено (истекло {expiry_date.strftime('%d.%m.%Y')})"
+                        else:
+                            reason = f"Истекает {expiry_date.strftime('%d.%m.%Y')}"
+            else:
+                needs_training = True
+                reason = "Первичное обучение (не пройдено)"
+
+            if needs_training:
+                already_in_list = any(
+                    e['employee'].id == emp.id and e['program'].id == program.id
+                    for e in employees_to_train
+                )
+                if not already_in_list:
+                    employees_to_train.append({
+                        'employee': emp,
+                        'program': program,
+                        'reason': reason,
+                        'expiry_date': expiry_date,
+                        'last_training_date': last_training.training_date if last_training else None,
+                        'priority': _calculate_priority(emp, program, expiry_date, today)
+                    })
+
+    employees_to_train.sort(
+        key=lambda x: (x['priority'], x['expiry_date'] or today))
+
+    # ── Создание Excel файла ──
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "План обучения"
+
+    # Заголовки
+    headers = ['№', 'ФИО', 'Должность', 'Отдел', 'Программа', 'Категория',
+               'Последнее обучение', 'Срок действия', 'Причина', 'Приоритет']
+    ws.append(headers)
+
+    # Стилизация заголовков
+    header_fill = PatternFill(start_color="D3D3D3", fill_type="solid")
+    header_font = Font(bold=True)
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+
+    # Приоритеты словами
+    priority_names = {
+        1: 'Критический (просрочено)',
+        2: 'Высокий (истекает через месяц)',
+        3: 'Средний (истекает через 2 мес)',
+        4: 'Низкий (истекает через 3 мес)',
+        5: 'Плановый',
+    }
+
+    # Данные
+    for idx, item in enumerate(employees_to_train, 1):
+        emp = item['employee']
+        program = item['program']
+        ws.append([
+            idx,
+            f"{emp.last_name} {emp.first_name} {emp.middle_name}",
+            str(emp.position) if emp.position else "-",
+            str(emp.department) if emp.department else "-",
+            program.name,
+            program.category.name if program.category else "-",
+            item['last_training_date'].strftime('%d.%m.%Y') if item['last_training_date'] else "Не пройдено",
+            item['expiry_date'].strftime('%d.%m.%Y') if item['expiry_date'] else "-",
+            item['reason'],
+            priority_names.get(item['priority'], f"Приоритет {item['priority']}"),
+        ])
+
+    # Автоширина колонок
+    for column in ws.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                max_length = max(max_length, len(str(cell.value or "")))
+            except:
+                pass
+        ws.column_dimensions[column_letter].width = min(max_length + 2, 50)
+
+    # Отправка файла
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f'plan_obucheniya_{today.strftime("%d.%m.%Y")}.xlsx'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 
 def _calculate_priority(employee, program, expiry_date, today):
@@ -328,3 +426,70 @@ def risks_report(request):
         'workplaces': workplaces,
         'stats': stats,
     })
+
+
+class ComplianceDashboardView(TemplateView):
+    """Панель соответствия требованиям по обучению"""
+    template_name = 'reports/compliance_dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.now().date()
+
+        all_employees = Employee.objects.filter(
+            is_active=True,
+            termination_date__isnull=True
+        )
+
+        violations_count = 0
+        warnings_count = 0
+        compliant_count = 0
+
+        for emp in all_employees:
+            status = check_employee_compliance(emp)
+            has_violations = (
+                status['expired_programs'] or
+                status['expired_instructions']
+            )
+            has_warnings = (
+                status['missing_programs'] or
+                status['missing_instructions']
+            )
+
+            if has_violations:
+                violations_count += 1
+            elif has_warnings:
+                warnings_count += 1
+            else:
+                compliant_count += 1
+
+        context.update({
+            'total_employees': all_employees.count(),
+            'compliant_count': compliant_count,
+            'violations_count': violations_count,
+            'warnings_count': warnings_count,
+            'compliance_rate': round(
+                compliant_count / all_employees.count() * 100, 1
+            ) if all_employees.count() > 0 else 0,
+            'today': today,
+        })
+
+        return context
+
+
+class ComplianceReportView(TemplateView):
+    """Отчёт по соответствию конкретного сотрудника"""
+    template_name = 'reports/compliance_report.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        employee = get_object_or_404(Employee, pk=kwargs['employee_pk'])
+        compliance_status = check_employee_compliance(employee)
+
+        context.update({
+            'employee': employee,
+            'compliance': compliance_status,
+            'today': timezone.now().date(),
+        })
+
+        return context
