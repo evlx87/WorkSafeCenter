@@ -73,12 +73,11 @@ def check_employee_compliance(employee: Employee):
             status['missing_programs'].append(
                 _make_program_item(program, 'Обучение не пройдено')
             )
-        elif program.frequency_months > 0:
-            expiry = last_training.training_date + relativedelta(months=program.frequency_months)
-            if expiry < today:
-                status['expired_programs'].append(
-                    _make_program_item(program, f'Срок истёк {expiry.strftime("%d.%m.%Y")}')
-                )
+        elif last_training.next_training_date and last_training.next_training_date < today:
+            status['expired_programs'].append(
+                _make_program_item(
+                    program, f'Срок истёк {
+                        last_training.next_training_date.strftime("%d.%m.%Y")}'))
 
     # 2. Проверка инструктажей (оставляем старую реализацию, она работает)
     instruction_result = _check_instructions(employee, today)
