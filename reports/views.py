@@ -4,14 +4,12 @@ from dateutil.relativedelta import relativedelta
 from django.db.models import Count
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
-from django.views.generic import TemplateView
 
 from employees.models import Employee
 from incidents.models import Incident
 from medical_checks.models import MedicalCheck
 from trainings.models import Training, TrainingProgram, TrainingCategory
 from trainings.requirements import is_program_required_for_employee
-from trainings.services import check_employee_compliance
 
 
 # Create your views here.
@@ -100,24 +98,42 @@ def training_plan_report(request):
         termination_date__isnull=True
     ).select_related('position', 'department')
 
+    # ────────────────────────────────────────────────────────
+    # ОПТИМИЗАЦИЯ: получаем все последние обучения одним запросом
+    # ────────────────────────────────────────────────────────
+
+    # 1. Сначала получаем все записи обучения для нужных сотрудников и программ
+    all_trainings = Training.objects.filter(
+        employee__in=all_employees,
+        program__in=programs
+    ).select_related('employee', 'program').order_by('employee', 'program', '-training_date')
+
+    # 2. Строим словарь: ключ = (employee_id, program_id) → последняя запись обучения
+    trainings_dict = {}
+    for training in all_trainings:
+        key = (training.employee_id, training.program_id)
+        # Так как записи отсортированы по убыванию даты,
+        # первая встреченная для каждой пары и будет последней
+        if key not in trainings_dict:
+            trainings_dict[key] = training
+
+    # ────────────────────────────────────────────────────────
+    # Теперь проходим по сотрудникам и программам без доп. запросов
+    # ────────────────────────────────────────────────────────
     for emp in all_employees:
         for program in programs:
             # Проверяем, нужна ли эта программа сотруднику
             if not is_program_required_for_employee(emp, program):
                 continue
 
-            # Ищем последнее обучение по этой программе
-            last_training = Training.objects.filter(
-                employee=emp,
-                program=program
-            ).order_by('-training_date').first()
+            # Получаем последнее обучение из предварительно собранного словаря
+            last_training = trainings_dict.get((emp.id, program.id))
 
             needs_training = False
             reason = ""
             expiry_date = None
 
             if last_training:
-                # Обучение было - проверяем срок действия
                 if program.frequency_months > 0:
                     expiry_date = last_training.training_date + relativedelta(
                         months=program.frequency_months
@@ -125,13 +141,10 @@ def training_plan_report(request):
                     if expiry_date <= horizon_date:
                         needs_training = True
                         if expiry_date < today:
-                            reason = f"Просрочено (истекло {
-                                expiry_date.strftime('%d.%m.%Y')})"
+                            reason = f"Просрочено (истекло {expiry_date.strftime('%d.%m.%Y')})"
                         else:
-                            reason = f"Истекает {
-                                expiry_date.strftime('%d.%m.%Y')}"
+                            reason = f"Истекает {expiry_date.strftime('%d.%m.%Y')}"
             else:
-                # Обучение не было - нужно первичное
                 needs_training = True
                 reason = "Первичное обучение (не пройдено)"
 
@@ -165,6 +178,61 @@ def training_plan_report(request):
         'selected_category': selected_category,
         'planning_horizon_months': planning_horizon_months,
     })
+
+
+def _is_program_required_for_employee(employee, program):
+    """
+    Определяет, требуется ли сотруднику данная программа обучения
+    """
+    category_code = program.category.code if program.category else None
+
+    # 1. Если программа обязательна для всех
+    if program.is_mandatory:
+        return True
+
+    # 2. Проверка по целевым должностям
+    if program.target_positions.exists():
+        if employee.position and program.target_positions.filter(
+                id=employee.position.id
+        ).exists():
+            return True
+
+    # 3. Проверка по категории и статусу сотрудника
+    if category_code == 'SAFETY':  # Охрана труда
+        # Нужна руководителям, членам комиссии, специалистам по ОТ
+        if (employee.is_executive or
+                employee.is_safety_committee_member or
+                employee.is_safety_specialist):
+            return True
+        # Также нужна всем рабочим (если не освобождены)
+        if not employee.exempt_from_safety_instruction:
+            return True
+
+    elif category_code == 'FIRE':  # Пожарная безопасность
+        # Нужна руководителям и всем сотрудникам
+        if employee.is_executive or not employee.exempt_from_safety_instruction:
+            return True
+
+    elif category_code == 'FIRST_AID':  # Первая помощь
+        # Нужна руководителям, педагогам, членам комиссии
+        if (employee.is_executive or
+                employee.is_pedagogical or
+                employee.is_safety_committee_member):
+            return True
+
+    elif category_code == 'ELECTRICAL':  # Электробезопасность
+        # Нужна всем (минимум 1 группа)
+        return True
+
+    elif category_code == 'WORKING_HEIGHT':  # Работы на высоте
+        # Только если должность требует
+        if employee.position and any(
+                keyword in employee.position.name.lower()
+                for keyword in ['монтажник', 'высот', 'кровель', 'строитель']
+        ):
+            return True
+
+    return False
 
 
 def _calculate_priority(employee, program, expiry_date, today):
@@ -260,70 +328,3 @@ def risks_report(request):
         'workplaces': workplaces,
         'stats': stats,
     })
-
-
-class ComplianceDashboardView(TemplateView):
-    """Панель соответствия требованиям по обучению"""
-    template_name = 'reports/compliance_dashboard.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        today = timezone.now().date()
-
-        all_employees = Employee.objects.filter(
-            is_active=True,
-            termination_date__isnull=True
-        )
-
-        violations_count = 0
-        warnings_count = 0
-        compliant_count = 0
-
-        for emp in all_employees:
-            status = check_employee_compliance(emp)
-            has_violations = (
-                status['expired_programs'] or
-                status['expired_instructions']
-            )
-            has_warnings = (
-                status['missing_programs'] or
-                status['missing_instructions']
-            )
-
-            if has_violations:
-                violations_count += 1
-            elif has_warnings:
-                warnings_count += 1
-            else:
-                compliant_count += 1
-
-        context.update({
-            'total_employees': all_employees.count(),
-            'compliant_count': compliant_count,
-            'violations_count': violations_count,
-            'warnings_count': warnings_count,
-            'compliance_rate': round(
-                compliant_count / all_employees.count() * 100, 1
-            ) if all_employees.count() > 0 else 0,
-            'today': today,
-        })
-
-        return context
-
-
-class ComplianceReportView(TemplateView):
-    """Отчёт по соответствию конкретного сотрудника"""
-    template_name = 'reports/compliance_report.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        employee = get_object_or_404(Employee, pk=kwargs['employee_pk'])
-        compliance_status = check_employee_compliance(employee)
-
-        context.update({
-            'employee': employee,
-            'compliance': compliance_status,
-            'today': timezone.now().date(),
-        })
-
-        return context
