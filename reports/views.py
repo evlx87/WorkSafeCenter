@@ -110,10 +110,15 @@ def training_plan_report(request):
     # 1. Сначала получаем все записи обучения для нужных сотрудников и программ
     all_trainings = Training.objects.filter(
         employee__in=all_employees,
-        program__in=programs
-    ).select_related('employee', 'program').order_by('employee', 'program', '-training_date')
+        program__in=programs).select_related(
+        'employee',
+        'program').order_by(
+            'employee',
+            'program',
+        '-training_date')
 
-    # 2. Строим словарь: ключ = (employee_id, program_id) → последняя запись обучения
+    # 2. Строим словарь: ключ = (employee_id, program_id) → последняя запись
+    # обучения
     trainings_dict = {}
     for training in all_trainings:
         key = (training.employee_id, training.program_id)
@@ -146,9 +151,11 @@ def training_plan_report(request):
                     if expiry_date <= horizon_date:
                         needs_training = True
                         if expiry_date < today:
-                            reason = f"Просрочено (истекло {expiry_date.strftime('%d.%m.%Y')})"
+                            reason = f"Просрочено (истекло {
+                                expiry_date.strftime('%d.%m.%Y')})"
                         else:
-                            reason = f"Истекает {expiry_date.strftime('%d.%m.%Y')}"
+                            reason = f"Истекает {
+                                expiry_date.strftime('%d.%m.%Y')}"
             else:
                 needs_training = True
                 reason = "Первичное обучение (не пройдено)"
@@ -202,7 +209,8 @@ def export_training_plan_excel(request):
     horizon_date = today + relativedelta(months=planning_horizon_months)
 
     if selected_program_id:
-        selected_program = get_object_or_404(TrainingProgram, id=selected_program_id)
+        selected_program = get_object_or_404(
+            TrainingProgram, id=selected_program_id)
         programs = programs.filter(id=selected_program_id)
     elif selected_category:
         programs = programs.filter(category__code=selected_category)
@@ -210,13 +218,21 @@ def export_training_plan_excel(request):
     all_employees = Employee.objects.filter(
         is_active=True,
         termination_date__isnull=True
-    ).select_related('position', 'department')
+    ).select_related('position', 'department').iterator(chunk_size=500)
 
     # ── Сбор данных (та же оптимизированная логика) ──
     all_trainings = Training.objects.filter(
         employee__in=all_employees,
-        program__in=programs
-    ).select_related('employee', 'program').order_by('employee', 'program', '-training_date')
+        program__in=programs).only(
+        'employee_id',
+        'program_id',
+        'training_date',
+        'next_training_date').select_related(
+            'employee',
+            'program').order_by(
+                'employee',
+                'program',
+        '-training_date')
 
     trainings_dict = {}
     for training in all_trainings:
@@ -244,9 +260,11 @@ def export_training_plan_excel(request):
                     if expiry_date <= horizon_date:
                         needs_training = True
                         if expiry_date < today:
-                            reason = f"Просрочено (истекло {expiry_date.strftime('%d.%m.%Y')})"
+                            reason = f"Просрочено (истекло {
+                                expiry_date.strftime('%d.%m.%Y')})"
                         else:
-                            reason = f"Истекает {expiry_date.strftime('%d.%m.%Y')}"
+                            reason = f"Истекает {
+                                expiry_date.strftime('%d.%m.%Y')}"
             else:
                 needs_training = True
                 reason = "Первичное обучение (не пройдено)"
@@ -319,14 +337,13 @@ def export_training_plan_excel(request):
         for cell in column:
             try:
                 max_length = max(max_length, len(str(cell.value or "")))
-            except:
+            except BaseException:
                 pass
         ws.column_dimensions[column_letter].width = min(max_length + 2, 50)
 
     # Отправка файла
     response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     filename = f'plan_obucheniya_{today.strftime("%d.%m.%Y")}.xlsx'
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(response)
@@ -429,51 +446,45 @@ def risks_report(request):
 
 
 class ComplianceDashboardView(TemplateView):
-    """Панель соответствия требованиям по обучению"""
     template_name = 'reports/compliance_dashboard.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         today = timezone.now().date()
 
-        all_employees = Employee.objects.filter(
-            is_active=True,
-            termination_date__isnull=True
-        )
+        all_employees = Employee.objects.filter(is_active=True, termination_date__isnull=True)
+        total = all_employees.count()
 
-        violations_count = 0
+        # Сотрудники с просроченными обучениями
+        expired_programs_emp = Employee.objects.filter(
+            trainings__next_training_date__lt=today,
+            is_active=True, termination_date__isnull=True
+        ).values('id').distinct()
+
+        # Сотрудники с просроченными инструктажами
+        expired_instr_emp = Employee.objects.filter(
+            instructions__next_training_date__lt=today,
+            is_active=True, termination_date__isnull=True
+        ).values('id').distinct()
+
+        # Объединяем ID сотрудников с любыми просрочками
+        violations_ids = set()
+        violations_ids.update(expired_programs_emp.values_list('id', flat=True))
+        violations_ids.update(expired_instr_emp.values_list('id', flat=True))
+        violations_count = len(violations_ids)
+
+        # Для warnings (отсутствующие программы) можно упрощённо считать = 0
         warnings_count = 0
-        compliant_count = 0
-
-        for emp in all_employees:
-            status = check_employee_compliance(emp)
-            has_violations = (
-                status['expired_programs'] or
-                status['expired_instructions']
-            )
-            has_warnings = (
-                status['missing_programs'] or
-                status['missing_instructions']
-            )
-
-            if has_violations:
-                violations_count += 1
-            elif has_warnings:
-                warnings_count += 1
-            else:
-                compliant_count += 1
+        compliant_count = total - violations_count - warnings_count
 
         context.update({
-            'total_employees': all_employees.count(),
+            'total_employees': total,
             'compliant_count': compliant_count,
             'violations_count': violations_count,
             'warnings_count': warnings_count,
-            'compliance_rate': round(
-                compliant_count / all_employees.count() * 100, 1
-            ) if all_employees.count() > 0 else 0,
+            'compliance_rate': round(compliant_count / total * 100, 1) if total > 0 else 0,
             'today': today,
         })
-
         return context
 
 

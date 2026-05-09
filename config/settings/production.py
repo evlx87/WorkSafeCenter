@@ -4,6 +4,11 @@ Production settings
 from .base import *
 
 DEBUG = False
+# Настройка для корректной работы HTTPS за reverse proxy
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# Для Nginx добавьте в location блок:
+# proxy_set_header X-Forwarded-Proto $scheme;
+# proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
 # Безопасность
 SECURE_SSL_REDIRECT = True

@@ -357,6 +357,10 @@ class Training(models.Model):
         verbose_name = "Обучение"
         verbose_name_plural = "Обучения"
         ordering = ['-training_date']
+        indexes = [
+            models.Index(fields=['employee', 'next_training_date']),
+            models.Index(fields=['program', 'training_date']),
+        ]
 
     def __str__(self):
         return f"{self.employee} - {self.raw_program_name or self.program.name}"
@@ -451,6 +455,9 @@ class Instruction(models.Model):
         verbose_name = "Инструктаж"
         verbose_name_plural = "Инструктажи"
         ordering = ['-training_date']
+        indexes = [
+            models.Index(fields=['employee', 'next_training_date']),
+        ]
 
     def __str__(self):
         return f"{self.instruction_type.name} - {self.employee}"

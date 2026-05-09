@@ -110,3 +110,7 @@ class Employee(models.Model):
         verbose_name = "Работник"
         verbose_name_plural = "Работники"
         ordering = ['last_name', 'first_name']
+        indexes = [
+            models.Index(fields=['is_active', 'termination_date']),
+            models.Index(fields=['last_name', 'first_name']),
+        ]
