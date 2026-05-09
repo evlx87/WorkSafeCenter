@@ -361,15 +361,6 @@ class Training(models.Model):
     def __str__(self):
         return f"{self.employee} - {self.raw_program_name or self.program.name}"
 
-    def save(self, *args, **kwargs):
-        # Автоматический расчет даты следующего обучения
-        if self.program.frequency_months > 0:
-            from dateutil.relativedelta import relativedelta
-            self.next_training_date = self.training_date + relativedelta(
-                months=self.program.frequency_months
-            )
-        super().save(*args, **kwargs)
-
     def get_effective_frequency(self):
         """Возвращает фактическую периодичность с учётом особенностей сотрудника."""
         base_freq = self.program.frequency_months
