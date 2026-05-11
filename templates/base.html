@@ -14,15 +14,11 @@
 </head>
 <body>
 <header class="main-header">
-  <div class="header-container">
+  <div class="header-top">
     <a href="{% url 'index' %}" class="logo">
       WorkSafeCenter
     </a>
 
-    <!-- Подключаем меню из отдельного файла -->
-    {% include 'includes/main_menu.html' %}
-
-    <!-- Пользовательские действия -->
     <div class="user-actions">
       {% if user.is_authenticated %}
         <span class="user-info">{{ user.username }}</span>
@@ -34,8 +30,12 @@
       {% else %}
         <a href="{% url 'accounts:login' %}" class="login-link">Войти</a>
       {% endif %}
+      <button class="mobile-menu-toggle" aria-label="Меню">
+        <span></span><span></span><span></span>
+      </button>
     </div>
   </div>
+  {% include 'includes/main_menu.html' %}
 </header>
 <main class="container">
   {% if messages %}

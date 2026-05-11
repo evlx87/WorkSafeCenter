@@ -5,16 +5,18 @@
 .main-header {
   background-color: var(--primary-color);
   color: white;
-  padding: 0 20px;
+  padding: 0;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-.header-container {
+/* Верхняя строка: логотип + действия пользователя */
+.header-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
   max-width: 1200px;
   margin: 0 auto;
+  padding: 0 20px;
   height: 60px;
 }
 
@@ -26,137 +28,53 @@
 }
 
 /* ========================================
-   ДВУХСТРОЧНОЕ МЕНЮ
+   ОДНОРЯДНОЕ МЕНЮ (вторая строка)
    ======================================== */
 
 .main-nav {
-  flex: 1;
+  background-color: rgba(0, 0, 0, 0.1);
+  padding: 8px 20px;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  justify-content: center;
 }
 
-.nav-row {
-  width: 100%;
-}
-
-.nav-row ul {
+.main-nav ul {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
-  gap: var(--space-3);
-  width: 100%;
-  justify-content: center;
+  align-items: center;
+  gap: 6px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
-.nav-row:first-child {
-  margin-bottom: var(--space-1);
-}
-
-/* ========================================
-   УЛУЧШЕННОЕ МЕНЮ С РАЗДЕЛИТЕЛЯМИ И ИКОНКАМИ
-   ======================================== */
-
-/* Стили для иконок в меню */
 .main-nav a {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   white-space: nowrap;
   color: #ecf0f1;
   text-decoration: none;
-  font-size: 0.95rem;
-  padding: 0.5rem 0.75rem;
+  font-size: 0.92rem;
+  padding: 6px 10px;
   border-radius: var(--radius-md);
   transition: background-color 0.3s, color 0.3s;
 }
 
-.main-nav a:hover {
-  color: var(--accent-color);
-}
-
-.main-nav a::before {
-  font-size: 1.1em;
-  line-height: 1;
-}
-
-/* Разделители между секциями */
-.nav-divider {
-  width: 1px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.3);
-  margin: 0 20px;
-  align-self: center;
-}
-
-/* Подсветка активной страницы */
 .main-nav a:hover,
 .main-nav a.active {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.12);
   color: #ffffff;
   text-decoration: none;
 }
 
-/* Стили для разделителей на мобильных */
-@media (max-width: 768px) {
-  .nav-divider {
-    display: none;
-  }
-
-  .nav-row ul li {
-    position: relative;
-    padding-left: 10px;
-  }
-
-  .nav-row ul li::before {
-    content: '•';
-    position: absolute;
-    left: 0;
-    color: var(--accent-300);
-    font-size: 1.2em;
-  }
-
-  /* Убираем точку перед разделителем */
-  .nav-row ul li.nav-divider::before {
-    content: '';
-  }
-}
-
-/* Анимация иконок при наведении */
-.main-nav a:hover::before {
-  transform: scale(1.1);
-  transition: transform 0.2s ease;
-}
-
-/* Подсветка активной страницы */
-.main-nav a.active,
-.main-nav a:active {
-  color: var(--accent-300);
-  font-weight: 600;
-}
-
-/* Эффект подчеркивания при наведении */
-@media (min-width: 769px) {
-  .main-nav ul li {
-    position: relative;
-  }
-
-  .main-nav a::after {
-    content: '';
-    position: absolute;
-    bottom: -5px;
-    left: 0;
-    width: 0;
-    height: 2px;
-    background: var(--accent-400);
-    transition: width 0.3s ease;
-  }
-
-  .main-nav a:hover::after {
-    width: 100%;
-  }
+.nav-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
+  align-self: center;
 }
 
 /* ========================================
@@ -172,7 +90,6 @@
   cursor: pointer;
   padding: var(--space-2);
   z-index: var(--z-index-fixed);
-  margin-left: var(--space-3);
 }
 
 .mobile-menu-toggle span {
@@ -187,16 +104,13 @@
 .mobile-menu-toggle.active span:nth-child(1) {
   transform: rotate(45deg) translate(5px, 5px);
 }
-
 .mobile-menu-toggle.active span:nth-child(2) {
   opacity: 0;
 }
-
 .mobile-menu-toggle.active span:nth-child(3) {
   transform: rotate(-45deg) translate(5px, -5px);
 }
 
-/* Мобильное меню */
 @media (max-width: 768px) {
   .mobile-menu-toggle {
     display: flex;
@@ -220,41 +134,30 @@
     left: 0;
   }
 
-  .nav-row ul {
+  .main-nav ul {
     flex-direction: column;
     gap: var(--space-2);
-    padding: 0;
+    width: 100%;
   }
 
-  .nav-row ul li {
+  .main-nav ul li {
     width: 100%;
     border-bottom: 1px solid rgba(255,255,255,0.1);
   }
 
-  .nav-row ul li:last-child {
+  .main-nav ul li:last-child {
     border-bottom: none;
   }
 
-  .nav-row:first-child {
-    margin-bottom: var(--space-4);
-    padding-bottom: var(--space-4);
-    border-bottom: 1px solid rgba(255,255,255,0.2);
-  }
-
-  .nav-row:last-child {
-    padding-top: var(--space-4);
-  }
-
   .main-nav a {
-    display: block;
-    padding: var(--space-3);
     font-size: 1.1rem;
-    text-align: left;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding: var(--space-3);
   }
 
   .user-actions {
-    display: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
   }
 }
 
