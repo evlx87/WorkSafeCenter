@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Результат импорта | WorkSafeCenter{% endblock %}
+
+{% block content %}
+<section>
+  <h2>📋 Результат импорта</h2>
+  {% if success %}
+    <div class="alert alert-success" style="background: #d4edda; padding: 15px; border-radius: 4px; color: #155724;">
+      Импорт успешно завершён{{ dry_run|yesno:" (тестовый прогон)," }}.
+    </div>
+  {% else %}
+    <div class="alert alert-danger" style="background: #f8d7da; padding: 15px; border-radius: 4px; color: #721c24;">
+      Во время импорта возникли ошибки.
+    </div>
+  {% endif %}
+
+  <pre style="background:#f5f5f5; padding:15px; border-radius:4px; overflow-x:auto; white-space:pre-wrap;">{{ message }}</pre>
+
+  <div style="margin-top: 20px;">
+    <a href="{% url 'employees:import_data' %}" class="button">Загрузить другой файл</a>
+    <a href="{% url 'index' %}" class="button" style="background-color: #95a5a6;">На главную</a>
+  </div>
+</section>
+{% endblock %}

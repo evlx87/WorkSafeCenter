@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Импорт данных | WorkSafeCenter{% endblock %}
+
+{% block content %}
+<section>
+  <h2>📥 Импорт данных из Excel</h2>
+  <p style="color:#666;">Загрузите файл в формате .xlsx, подготовленный по шаблону. При необходимости добавьте ZIP-архив со сканами.</p>
+
+  <div style="margin-bottom: 25px;">
+    <a href="{% url 'employees:download_template' %}" class="button" style="background-color: #27ae60;">
+      📄 Скачать шаблон Excel
+    </a>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="profile-card">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="excel_file">Файл Excel (.xlsx):</label>
+      <input type="file" name="excel_file" id="excel_file" accept=".xlsx" required>
+    </div>
+
+    <div class="form-group">
+      <label for="zip_file">Архив со сканами (ZIP):</label>
+      <input type="file" name="zip_file" id="zip_file" accept=".zip">
+      <small>Если в Excel указаны имена файлов сканов, добавьте их в ZIP-архив. Поддерживаются .pdf, .jpg, .png.</small>
+    </div>
+
+    <div class="form-group">
+      <label>
+        <input type="checkbox" name="dry_run">
+        Тестовый прогон (без сохранения в базу)
+      </label>
+    </div>
+
+    <button type="submit" class="button">Загрузить и выполнить импорт</button>
+  </form>
+
+  <p style="margin-top: 20px; font-size:0.9rem; color:#888;">
+    ⚠️ Импорт работает только с шаблоном. Все справочники (программы, категории) должны существовать до загрузки.
+  </p>
+</section>
+{% endblock %}

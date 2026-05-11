@@ -14,6 +14,13 @@ WorkSafeCenter - Информационная панель
         <a href="{% url 'admin:auth_user_changelist' %}" class="button" style="background-color: #6c757d;">
           ⚙️ Управление доступом
         </a>
+        <!-- новые кнопки -->
+        <a href="{% url 'employees:import_data' %}" class="button" style="background-color: #2980b9;">
+          📥 Импорт Excel
+        </a>
+        <a href="{% url 'employees:download_template' %}" class="button" style="background-color: #27ae60;">
+          📄 Шаблон Excel
+        </a>
       {% endif %}
     </div>
   </div>
